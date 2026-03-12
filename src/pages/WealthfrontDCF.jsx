@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area } from "recharts";
 
 // ─── Wealthfront Brand Colors ───
@@ -131,30 +131,91 @@ function ClientsTooltip({ active, payload, label }) {
   );
 }
 
+// ─── URL State Sharing ───
+// Reads a numeric param from the URL hash. Returns fallback if not present.
+function getHashParam(key, fallback) {
+  try {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return fallback;
+    const params = new URLSearchParams(hash);
+    const val = params.get(key);
+    if (val === null) return fallback;
+    const num = parseFloat(val);
+    return isNaN(num) ? fallback : num;
+  } catch { return fallback; }
+}
+
+// Short keys for URL compactness
+const PARAM_MAP = {
+  sp: "stockPrice", effr: "effr", fy29: "fy29Effr", w: "wacc", tg: "termGrowth",
+  cm: "cmYieldBps", mix: "cmMix", exp: "expansionRate", tm: "termEbitdaMargin",
+  dep: "newCustDeposits", ia: "iaReturn", dil: "dilution", pay: "payoutRate",
+  opex: "opexExMktg", sm: "smEfficiency", gm: "grossMargin", tax: "taxRate", fcf: "fcfConversion",
+};
+
 // ─── Main Component ───
 export default function WealthfrontDCF() {
-  // Primary inputs
-  const [stockPrice, setStockPrice] = useState(8.00);
-  const [effr, setEffr] = useState(3.64);
-  const [fy29Effr, setFy29Effr] = useState(3.60);
-  const [wacc, setWacc] = useState(0.13);
-  const [termGrowth, setTermGrowth] = useState(0.03);
-  const [cmYieldBps, setCmYieldBps] = useState(62);
-  const [cmMix, setCmMix] = useState(0.35);
-  const [expansionRate, setExpansionRate] = useState(0.055);
-  const [termEbitdaMargin, setTermEbitdaMargin] = useState(0.63);
+  // Primary inputs — initialized from URL hash if present
+  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 8.00));
+  const [effr, setEffr] = useState(() => getHashParam("effr", 3.64));
+  const [fy29Effr, setFy29Effr] = useState(() => getHashParam("fy29", 3.60));
+  const [wacc, setWacc] = useState(() => getHashParam("w", 0.13));
+  const [termGrowth, setTermGrowth] = useState(() => getHashParam("tg", 0.03));
+  const [cmYieldBps, setCmYieldBps] = useState(() => getHashParam("cm", 62));
+  const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.35));
+  const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.055));
+  const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.63));
 
-  // Secondary inputs
+  // Secondary inputs — initialized from URL hash if present
+  const hasHashParams = window.location.hash.length > 1;
   const [showSecondary, setShowSecondary] = useState(false);
-  const [newCustDeposits, setNewCustDeposits] = useState(4000);
-  const [iaReturn, setIaReturn] = useState(0.07);
-  const [dilution, setDilution] = useState(0.01);
-  const [payoutRate, setPayoutRate] = useState(0.50);
-  const [opexExMktg, setOpexExMktg] = useState(0.35);
-  const [smEfficiency, setSmEfficiency] = useState(125);
-  const [grossMargin, setGrossMargin] = useState(0.90);
-  const [taxRate, setTaxRate] = useState(0.21);
-  const [fcfConversion, setFcfConversion] = useState(0.85);
+  const [newCustDeposits, setNewCustDeposits] = useState(() => getHashParam("dep", 4000));
+  const [iaReturn, setIaReturn] = useState(() => getHashParam("ia", 0.07));
+  const [dilution, setDilution] = useState(() => getHashParam("dil", 0.01));
+  const [payoutRate, setPayoutRate] = useState(() => getHashParam("pay", 0.50));
+  const [opexExMktg, setOpexExMktg] = useState(() => getHashParam("opex", 0.35));
+  const [smEfficiency, setSmEfficiency] = useState(() => getHashParam("sm", 125));
+  const [grossMargin, setGrossMargin] = useState(() => getHashParam("gm", 0.90));
+  const [taxRate, setTaxRate] = useState(() => getHashParam("tax", 0.21));
+  const [fcfConversion, setFcfConversion] = useState(() => getHashParam("fcf", 0.85));
+
+  // Share state: copied feedback
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = () => {
+    const params = new URLSearchParams({
+      sp: stockPrice, effr, fy29: fy29Effr, w: wacc, tg: termGrowth,
+      cm: cmYieldBps, mix: cmMix, exp: expansionRate, tm: termEbitdaMargin,
+      dep: newCustDeposits, ia: iaReturn, dil: dilution, pay: payoutRate,
+      opex: opexExMktg, sm: smEfficiency, gm: grossMargin, tax: taxRate, fcf: fcfConversion,
+    });
+    const url = `${window.location.origin}${window.location.pathname}#${params}`;
+    window.history.replaceState(null, "", url);
+    // Clipboard: try modern API first, fall back to execCommand
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        fallbackCopy(url);
+      });
+    } else {
+      fallbackCopy(url);
+    }
+  };
+
+  const fallbackCopy = (text) => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // ─── Full Model Computation ───
   const model = useMemo(() => {
@@ -529,9 +590,15 @@ export default function WealthfrontDCF() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Wealthfront DCF Model</div>
         <span style={{ background: C.purpleDark, color: C.lavender, padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>WLTH · INTERNAL</span>
-        <div style={{ marginLeft: "auto", textAlign: "right" }}>
-          <div style={{ fontSize: 12, color: C.textDim }}>10-Year DCF with Gordon Growth Terminal Value · FY Ends Jan 31</div>
-          <div style={{ fontSize: 10, color: C.textDim, fontStyle: "italic", marginTop: 2 }}>Independent analysis, not affiliated with Wealthfront.</div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 12, color: C.textDim }}>10-Year DCF with Gordon Growth Terminal Value · FY Ends Jan 31</div>
+            <div style={{ fontSize: 10, color: C.textDim, fontStyle: "italic", marginTop: 2 }}>Independent analysis, not affiliated with Wealthfront.</div>
+          </div>
+          <button onClick={handleShare}
+            style={{ background: copied ? C.greenDark : C.purpleDark, border: `1px solid ${copied ? C.green : C.purple}`, color: copied ? C.green : C.lavender, padding: "8px 16px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.5, whiteSpace: "nowrap", transition: "all 0.2s ease" }}>
+            {copied ? "Copied!" : "Share"}
+          </button>
         </div>
       </div>
 
