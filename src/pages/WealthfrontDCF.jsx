@@ -113,6 +113,7 @@ function AUMTooltip({ active, payload, label }) {
       <div style={{ color: C.purpleLight, marginBottom: 2 }}>Cash Mgmt: ${d.cm}B</div>
       <div style={{ color: C.lavender, marginBottom: 2 }}>Investment Advisory: ${d.ia}B</div>
       <div style={{ color: C.accent, fontWeight: 700 }}>Total AUM: ${total}B</div>
+      {d.aumGrowth != null && <div style={{ color: C.green, marginTop: 2 }}>YoY Growth: {fmtPct(d.aumGrowth, 1)}</div>}
     </div>
   );
 }
@@ -410,6 +411,10 @@ export default function WealthfrontDCF() {
         cmAssets = totalAssets * 0.42; // approximate split
         iaAssets = totalAssets * 0.58;
 
+        // Back into client count: grow at ~60% of revenue growth (deposits per client increase over time)
+        const clientGrowthRate = revGrowth * 0.6;
+        clients = clients * (1 + clientGrowthRate);
+
         const cmRevenue = totalRevenue * 0.65; // approximate split
         const iaRevenue = totalRevenue * 0.35;
         const blendedYield = totalRevenue / totalAssets;
@@ -419,7 +424,7 @@ export default function WealthfrontDCF() {
           fy, yr: i + 1,
           effr: effrCurve[i], cmYield: cmYields[i],
           cmAssets, iaAssets, totalAssets,
-          clients: 0, clientGrowth: 0,
+          clients: Math.round(clients), clientGrowth: clientGrowthRate,
           totalRevenue, cmRevenue, iaRevenue, blendedYield,
           grossProfit, salesMarketing: 0, totalOpex: 0,
           ebit, netIncome, eps, fdso,
@@ -508,16 +513,21 @@ export default function WealthfrontDCF() {
   // ─── Chart Data ───
   const chartData = useMemo(() => {
     const hist = [
-      { fy: "FY24", revenue: 216.7, ebitda: 98.6, margin: 0.455, assets: 57.6, cm: 29.4, ia: 28.2, clients: 854, clientGrowth: null },
-      { fy: "FY25", revenue: 309.0, ebitda: 142.8, margin: 0.462, assets: 80.2, cm: 42.4, ia: 37.8, clients: 1212, clientGrowth: (1212 - 854) / 854 },
-      { fy: "FY26", revenue: 365.0, ebitda: 170.4, margin: 0.467, assets: 94.1, cm: 45.4, ia: 48.7, clients: 1417, clientGrowth: (1417 - 1212) / 1212 },
+      { fy: "FY24", revenue: 216.7, ebitda: 98.6, margin: 0.455, revGrowth: null, assets: 57.6, cm: 29.4, ia: 28.2, clients: 854, clientGrowth: null, aumGrowth: null },
+      { fy: "FY25", revenue: 309.0, ebitda: 142.8, margin: 0.462, revGrowth: (309.0 - 216.7) / 216.7, assets: 80.2, cm: 42.4, ia: 37.8, clients: 1212, clientGrowth: (1212 - 854) / 854, aumGrowth: (80.2 - 57.6) / 57.6 },
+      { fy: "FY26", revenue: 365.0, ebitda: 170.4, margin: 0.467, revGrowth: (365.0 - 309.0) / 309.0, assets: 94.1, cm: 45.4, ia: 48.7, clients: 1417, clientGrowth: (1417 - 1212) / 1212, aumGrowth: (94.1 - 80.2) / 80.2 },
     ];
-    const proj = model.projYears.map(y => ({
-      fy: y.fy, revenue: +y.totalRevenue.toFixed(1), ebitda: +y.adjEbitda.toFixed(1),
-      margin: y.ebitdaMargin, assets: +(y.totalAssets / 1000).toFixed(1),
-      cm: +(y.cmAssets / 1000).toFixed(1), ia: +(y.iaAssets / 1000).toFixed(1),
-      clients: y.clients, clientGrowth: y.clientGrowth, projected: true,
-    }));
+    const proj = model.projYears.map((y, idx) => {
+      const prevAssets = idx === 0 ? 94089 : model.projYears[idx - 1].totalAssets;
+      const aumGrowth = (y.totalAssets - prevAssets) / prevAssets;
+      return {
+        fy: y.fy, revenue: +y.totalRevenue.toFixed(1), ebitda: +y.adjEbitda.toFixed(1),
+        margin: y.ebitdaMargin, revGrowth: y.revenueGrowth,
+        assets: +(y.totalAssets / 1000).toFixed(1),
+        cm: +(y.cmAssets / 1000).toFixed(1), ia: +(y.iaAssets / 1000).toFixed(1),
+        clients: y.clients, clientGrowth: y.clientGrowth, aumGrowth, projected: true,
+      };
+    });
     return [...hist, ...proj];
   }, [model]);
 
@@ -681,35 +691,76 @@ export default function WealthfrontDCF() {
             </div>
           </div>
 
-          {/* Chart: Revenue & EBITDA */}
+          {/* Chart: Revenue & YoY Growth */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Revenue & Adj. EBITDA ($M)</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Revenue ($M) & YoY Growth</div>
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="fy" tick={{ fontSize: 10, fill: C.textDim }} />
+                <YAxis tick={{ fontSize: 10, fill: C.textDim }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => fmtPct(v, 0)} domain={[0, 0.6]} />
+                <Tooltip content={({ active, payload, label }) => {
+                  if (!active || !payload) return null;
+                  return (
+                    <div style={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px", fontSize: 11, color: C.text }}>
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
+                      {payload.map((p, i) => (
+                        <div key={i} style={{ color: p.color, marginBottom: 2 }}>
+                          {p.name}: {p.name === "YoY Growth" ? fmtPct(p.value, 1) : `$${p.value.toFixed(0)}M`}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }} />
+                <Bar dataKey="revenue" name="Revenue" fill={C.purpleLight} radius={[2,2,0,0]} />
+                <Line dataKey="revGrowth" name="YoY Growth" yAxisId="right" stroke={C.green} strokeWidth={2} dot={{ r: 3, fill: C.green }} connectNulls={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Chart: Adj. EBITDA & Margin */}
+          <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Adj. EBITDA ($M) & Margin</div>
             <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                 <XAxis dataKey="fy" tick={{ fontSize: 10, fill: C.textDim }} />
                 <YAxis tick={{ fontSize: 10, fill: C.textDim }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => fmtPct(v, 0)} domain={[0, 0.8]} />
-                <Tooltip content={<RevenueTooltip />} />
-                <Bar dataKey="revenue" name="Revenue" fill={C.purpleLight} radius={[2,2,0,0]} />
+                <Tooltip content={({ active, payload, label }) => {
+                  if (!active || !payload) return null;
+                  return (
+                    <div style={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px", fontSize: 11, color: C.text }}>
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
+                      {payload.map((p, i) => (
+                        <div key={i} style={{ color: p.color, marginBottom: 2 }}>
+                          {p.name}: {p.name === "EBITDA Margin" ? fmtPct(p.value, 1) : `$${p.value.toFixed(0)}M`}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }} />
                 <Bar dataKey="ebitda" name="Adj. EBITDA" fill={C.purple} radius={[2,2,0,0]} />
-                <Line dataKey="margin" name="EBITDA Margin" yAxisId="right" stroke={C.green} strokeWidth={2} dot={false} />
+                <Line dataKey="margin" name="EBITDA Margin" yAxisId="right" stroke={C.green} strokeWidth={2} dot={{ r: 3, fill: C.green }} connectNulls={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
 
           {/* Chart: Platform AUM */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Platform AUM ($B) — CM vs IA</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Platform AUM ($B) — CM vs IA & YoY Growth</div>
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+              <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                 <XAxis dataKey="fy" tick={{ fontSize: 10, fill: C.textDim }} />
                 <YAxis tick={{ fontSize: 10, fill: C.textDim }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => fmtPct(v, 0)} domain={[0, 0.5]} />
                 <Tooltip content={<AUMTooltip />} />
                 <Bar dataKey="cm" name="Cash Mgmt" stackId="a" fill={C.purpleDark} radius={[0,0,0,0]} />
                 <Bar dataKey="ia" name="Investment Advisory" stackId="a" fill={C.purpleLight} radius={[2,2,0,0]} />
-              </BarChart>
+                <Line dataKey="aumGrowth" name="AUM Growth" yAxisId="right" stroke={C.green} strokeWidth={2} dot={{ r: 3, fill: C.green }} connectNulls={false} />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
 
