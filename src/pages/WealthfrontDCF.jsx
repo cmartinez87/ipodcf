@@ -134,7 +134,7 @@ function ClientsTooltip({ active, payload, label }) {
 // ─── Main Component ───
 export default function WealthfrontDCF() {
   // Primary inputs
-  const [stockPrice, setStockPrice] = useState(8.40);
+  const [stockPrice, setStockPrice] = useState(8.00);
   const [effr, setEffr] = useState(3.64);
   const [fy29Effr, setFy29Effr] = useState(3.60);
   const [wacc, setWacc] = useState(0.13);
@@ -146,8 +146,7 @@ export default function WealthfrontDCF() {
 
   // Secondary inputs
   const [showSecondary, setShowSecondary] = useState(false);
-  const [netNewAccounts, setNetNewAccounts] = useState(150);
-  const [avgDeposit, setAvgDeposit] = useState(20);
+  const [newCustDeposits, setNewCustDeposits] = useState(4000);
   const [iaReturn, setIaReturn] = useState(0.07);
   const [dilution, setDilution] = useState(0.01);
   const [payoutRate, setPayoutRate] = useState(0.50);
@@ -181,6 +180,14 @@ export default function WealthfrontDCF() {
     const cmReturns = effrCurve.map(e => e);
     const iaYield = 0.002125;
 
+    // Revenue growth deceleration schedule for extended years (FY31-36, i=4..9)
+    // Mirrors v8 Flat scenario: 12% → 9% → 7% → 5% → 3.5% → 3%
+    const extendedGrowthRates = [0.12, 0.09, 0.07, 0.05, 0.035, 0.03];
+    // Extended EBITDA margins ramp toward terminal
+    const extendedEbitdaMargins = [0.60, 0.61, 0.62, 0.625, 0.63, 0.63];
+    // Extended FCF conversion ramps
+    const extendedFcfConversion = [0.82, 0.83, 0.84, 0.84, 0.85, 0.85];
+
     // Starting values from FY26
     let cmAssets = FY26.cmAssets;
     let iaAssets = FY26.iaAssets;
@@ -194,142 +201,193 @@ export default function WealthfrontDCF() {
 
     for (let i = 0; i < years; i++) {
       const fy = `FY${27 + i}`;
-      const yr = i;
+      const isDetailed = i < 4; // FY27-30: bottom-up; FY31-36: top-down
 
-      // CM mix: gradually moves from input toward stabilized
-      const curCmMix = cmMix * (1 - i * 0.02);
-      const iaMix = 1 - Math.max(curCmMix, 0.15);
-      const actualCmMix = 1 - iaMix;
+      if (isDetailed) {
+        // ─── Bottom-up projection (FY27-FY30) ───
 
-      // Client growth
-      const newAccounts = netNewAccounts * (1 + i * 0.02); // slight growth in accounts
-      clients += newAccounts;
+        // CM mix: gradually moves from input toward stabilized
+        const curCmMix = cmMix * (1 - i * 0.02);
+        const iaMix = 1 - Math.max(curCmMix, 0.15);
+        const actualCmMix = 1 - iaMix;
 
-      // Existing customer deposits
-      const existingDeposits = totalAssets * expansionRate;
+        // Client growth (approximate from new customer deposits)
+        const impliedNewAccounts = newCustDeposits / 20; // assume ~$20K avg deposit for client count
+        const newAccounts = impliedNewAccounts * (1 + i * 0.02);
+        clients += newAccounts;
 
-      // New customer deposits
-      const newDeposits = netNewAccounts * avgDeposit; // K accounts × $K = $M
+        // Existing customer deposits
+        const existingDeposits = totalAssets * expansionRate;
 
-      // Total net deposits
-      const totalNetDeposits = existingDeposits + newDeposits;
+        // New customer deposits: direct $ input
+        const newDeposits = newCustDeposits;
 
-      // Split by CM/IA
-      const cmDeposits = totalNetDeposits * actualCmMix;
-      const iaDeposits = totalNetDeposits * iaMix;
+        // Total net deposits
+        const totalNetDeposits = existingDeposits + newDeposits;
 
-      // Market movement
-      const cmMktMove = cmAssets * cmReturns[i];
-      const iaMktMove = iaAssets * iaReturn;
+        // Split by CM/IA
+        const cmDeposits = totalNetDeposits * actualCmMix;
+        const iaDeposits = totalNetDeposits * iaMix;
 
-      // New asset levels
-      cmAssets = cmAssets + cmDeposits + cmMktMove;
-      iaAssets = iaAssets + iaDeposits + iaMktMove;
-      totalAssets = cmAssets + iaAssets;
+        // Market movement
+        const cmMktMove = cmAssets * cmReturns[i];
+        const iaMktMove = iaAssets * iaReturn;
 
-      // Revenue
-      const avgCm = (cmAssets + (cmAssets - cmDeposits - cmMktMove)) / 2;
-      const avgIa = (iaAssets + (iaAssets - iaDeposits - iaMktMove)) / 2;
-      const cmRevenue = avgCm * cmYields[i];
-      const iaRevenue = avgIa * iaYield;
-      const totalRevenue = cmRevenue + iaRevenue;
+        // New asset levels
+        cmAssets = cmAssets + cmDeposits + cmMktMove;
+        iaAssets = iaAssets + iaDeposits + iaMktMove;
+        totalAssets = cmAssets + iaAssets;
 
-      // Blended yield
-      const blendedYield = totalRevenue / ((totalAssets + (totalAssets - totalNetDeposits - cmMktMove - iaMktMove)) / 2);
+        // Revenue
+        const avgCm = (cmAssets + (cmAssets - cmDeposits - cmMktMove)) / 2;
+        const avgIa = (iaAssets + (iaAssets - iaDeposits - iaMktMove)) / 2;
+        const cmRevenue = avgCm * cmYields[i];
+        const iaRevenue = avgIa * iaYield;
+        const totalRevenue = cmRevenue + iaRevenue;
 
-      // Sales & Marketing: derived from deposit efficiency
-      const salesMarketing = totalNetDeposits / smEfficiency;
+        // Blended yield
+        const blendedYield = totalRevenue / ((totalAssets + (totalAssets - totalNetDeposits - cmMktMove - iaMktMove)) / 2);
 
-      // OpEx
-      const opexExMktgAbs = totalRevenue * opexExMktg;
-      const grossProfit = totalRevenue * grossMargin;
-      const totalOpex = opexExMktgAbs + salesMarketing;
+        // Sales & Marketing: derived from deposit efficiency
+        const salesMarketing = totalNetDeposits / smEfficiency;
 
-      // EBIT
-      const ebit = grossProfit - totalOpex;
+        // OpEx: declines 1% per year from starting level through FY30
+        const yearOpexExMktg = Math.max(opexExMktg - i * 0.01, 0.20);
+        const opexExMktgAbs = totalRevenue * yearOpexExMktg;
+        const grossProfit = totalRevenue * grossMargin;
+        const totalOpex = opexExMktgAbs + salesMarketing;
 
-      // Below the line
-      const interest = 0.891;
-      const otherIncome = i === 0 ? 10.813 : 0;
-      const preTax = ebit - interest + otherIncome;
-      const tax = Math.max(0, preTax * taxRate);
-      const netIncome = preTax - tax;
+        // EBIT
+        const ebit = grossProfit - totalOpex;
 
-      // FDSO with dilution
-      fdso = fdso * (1 + dilution);
+        // Below the line
+        const interestExpense = 0.891;
+        const otherIncome = 10.813; // carried through all years per v8
+        const interestIncome = cash > 0 ? cash * currentEffr : 0; // interest on cash balance
+        const preTax = ebit - interestExpense + otherIncome + interestIncome;
+        const tax = Math.max(0, preTax * taxRate);
+        const netIncome = preTax - tax;
 
-      // EPS
-      const eps = netIncome / fdso;
+        // FDSO with dilution
+        fdso = fdso * (1 + dilution);
 
-      // D&A and SBC (SBC scales with dilution: base 1% → ~$20M yr1)
-      const da = 7.4 * Math.pow(1.10, i);
-      const sbcScale = dilution > 0 ? dilution / 0.01 : 0;
-      sbc = (20 + i * 2) * sbcScale;
+        // EPS
+        const eps = netIncome / fdso;
 
-      // Adj EBITDA (for display — adds back SBC and D&A)
-      const adjEbitda = netIncome + interest + tax + da + sbc;
-      const ebitdaMargin = adjEbitda / totalRevenue;
+        // D&A and SBC (SBC scales with dilution: base 1% → ~$20M yr1)
+        const da = 7.4 * Math.pow(1.10, i);
+        const sbcScale = dilution > 0 ? dilution / 0.01 : 0;
+        sbc = (20 + i * 2) * sbcScale;
 
-      // UFCF: use NOPAT + D&A approach so tax rate actually matters
-      // UFCF = EBIT × (1-t) + D&A, with fcfConversion handling capex/WC drag
-      const nopat = ebit * (1 - taxRate);
-      const ufcf = (nopat + da) * fcfConversion;
+        // Adj EBITDA (for display — adds back SBC and D&A)
+        const adjEbitda = netIncome + interestExpense + tax + da + sbc;
+        const ebitdaMargin = adjEbitda / totalRevenue;
 
-      // Dividends
-      const dividend = i >= 1 && netIncome > 0 ? netIncome * payoutRate / fdso : 0;
+        // UFCF: Adj. EBITDA × FCF conversion (standard sell-side convention)
+        const ufcf = adjEbitda * fcfConversion;
 
-      // Cash balance
-      cash = cash + ufcf - (i >= 1 && netIncome > 0 ? netIncome * payoutRate : 0);
+        // Dividends
+        const dividend = i >= 1 && netIncome > 0 ? netIncome * payoutRate / fdso : 0;
 
-      const cashPerShare = cash / fdso;
+        // Cash balance: UFCF + interest income - dividends
+        const divsPaid = i >= 1 && netIncome > 0 ? netIncome * payoutRate : 0;
+        cash = cash + ufcf + interestIncome - divsPaid;
 
-      // Client growth YoY
-      const clientGrowth = (clients - prevClients) / prevClients;
+        const cashPerShare = cash / fdso;
 
-      projYears.push({
-        fy, yr: i + 1,
-        effr: effrCurve[i], cmYield: cmYields[i],
-        cmAssets, iaAssets, totalAssets,
-        clients: Math.round(clients), clientGrowth,
-        totalRevenue, cmRevenue, iaRevenue, blendedYield,
-        grossProfit, salesMarketing, totalOpex,
-        ebit, netIncome, eps, fdso,
-        adjEbitda, ebitdaMargin, da, sbc,
-        ufcf, cash, cashPerShare, dividend,
-        revenueGrowth: (totalRevenue - prevRevenue) / prevRevenue,
-      });
+        // Client growth YoY
+        const clientGrowth = (clients - prevClients) / prevClients;
 
-      prevRevenue = totalRevenue;
-      prevClients = clients;
+        projYears.push({
+          fy, yr: i + 1,
+          effr: effrCurve[i], cmYield: cmYields[i],
+          cmAssets, iaAssets, totalAssets,
+          clients: Math.round(clients), clientGrowth,
+          totalRevenue, cmRevenue, iaRevenue, blendedYield,
+          grossProfit, salesMarketing, totalOpex,
+          ebit, netIncome, eps, fdso,
+          adjEbitda, ebitdaMargin, da, sbc,
+          ufcf, cash, cashPerShare, dividend, interestIncome,
+          revenueGrowth: (totalRevenue - prevRevenue) / prevRevenue,
+        });
+
+        prevRevenue = totalRevenue;
+        prevClients = clients;
+      } else {
+        // ─── Top-down extended projection (FY31-FY36) ───
+        const extIdx = i - 4; // 0..5
+        const revGrowth = extendedGrowthRates[extIdx];
+        const totalRevenue = prevRevenue * (1 + revGrowth);
+        const ebitdaMargin = extendedEbitdaMargins[extIdx];
+        const adjEbitda = totalRevenue * ebitdaMargin;
+        // Keep D&A, SBC growing
+        const da = 7.4 * Math.pow(1.10, i);
+        const sbcScale = dilution > 0 ? dilution / 0.01 : 0;
+        sbc = (20 + i * 2) * sbcScale;
+
+        // EBIT from EBITDA
+        const ebit = adjEbitda - da - sbc;
+
+        // UFCF: Adj. EBITDA × FCF conversion (consistent with detailed years)
+        const ufcf = adjEbitda * fcfConversion;
+        const interestExpense = 0.891;
+        const otherIncome = 10.813;
+        const interestIncome = cash > 0 ? cash * currentEffr : 0;
+        const preTax = ebit - interestExpense + otherIncome + interestIncome;
+        const tax = Math.max(0, preTax * taxRate);
+        const netIncome = preTax - tax;
+
+        fdso = fdso * (1 + dilution);
+        const eps = netIncome / fdso;
+        const dividend = netIncome > 0 ? netIncome * payoutRate / fdso : 0;
+        const divsPaid = netIncome > 0 ? netIncome * payoutRate : 0;
+        cash = cash + ufcf + interestIncome - divsPaid;
+        const cashPerShare = cash / fdso;
+
+        // Approximate asset growth using revenue growth as proxy
+        totalAssets = totalAssets * (1 + revGrowth);
+        cmAssets = totalAssets * 0.42; // approximate split
+        iaAssets = totalAssets * 0.58;
+
+        const cmRevenue = totalRevenue * 0.65; // approximate split
+        const iaRevenue = totalRevenue * 0.35;
+        const blendedYield = totalRevenue / totalAssets;
+        const grossProfit = totalRevenue * grossMargin;
+
+        projYears.push({
+          fy, yr: i + 1,
+          effr: effrCurve[i], cmYield: cmYields[i],
+          cmAssets, iaAssets, totalAssets,
+          clients: 0, clientGrowth: 0,
+          totalRevenue, cmRevenue, iaRevenue, blendedYield,
+          grossProfit, salesMarketing: 0, totalOpex: 0,
+          ebit, netIncome, eps, fdso,
+          adjEbitda, ebitdaMargin, da, sbc,
+          ufcf, cash, cashPerShare, dividend, interestIncome,
+          revenueGrowth: revGrowth,
+        });
+
+        prevRevenue = totalRevenue;
+      }
     }
 
     // ─── DCF Calculation ───
     const pvFcfs = projYears.map((y, i) => y.ufcf / Math.pow(1 + wacc, i + 1));
     const sumPvFcf = pvFcfs.reduce((a, b) => a + b, 0);
 
-    // Terminal value uses termEbitdaMargin (normalized steady-state, not bottom-up yr10)
+    // Terminal value: Adj. EBITDA × FCF% (consistent with projection UFCF)
     const lastRevenue = projYears[years - 1].totalRevenue;
-    const lastDa = projYears[years - 1].da;
     const termRevenue = lastRevenue * (1 + termGrowth);
     const termEbitda = termRevenue * termEbitdaMargin;
-    const termDa = lastDa * (1 + termGrowth);
-    const termEbit = termEbitda - termDa;
-    const termNopat = termEbit * (1 - taxRate);
-    const termUfcf = (termNopat + termDa) * fcfConversion;
+    const termUfcf = termEbitda * fcfConversion;
 
     // Gordon Growth
     const gordonTV = termUfcf / (wacc - termGrowth);
     const pvGordonTV = gordonTV / Math.pow(1 + wacc, years);
     const gordonEV = sumPvFcf + pvGordonTV;
+    const totalPvSbc = 0; // SBC handled within EBITDA bridge, no separate deduction
 
-    // Deduct PV of future SBC to account for dilution cost
-    // (SBC is added back to EBITDA as non-cash, but represents real equity dilution)
-    const pvSbc = projYears.reduce((sum, y, i) => sum + y.sbc / Math.pow(1 + wacc, i + 1), 0);
-    const termSbc = projYears[years - 1].sbc * (1 + termGrowth) / (wacc - termGrowth);
-    const pvTermSbc = termSbc / Math.pow(1 + wacc, years);
-    const totalPvSbc = pvSbc + pvTermSbc;
-
-    const gordonEquity = gordonEV + FY26.cash - totalPvSbc;
+    const gordonEquity = gordonEV + FY26.cash;
     const gordonPrice = gordonEquity / FY26.fdso;
 
     // Implied multiples from Gordon
@@ -383,7 +441,7 @@ export default function WealthfrontDCF() {
       upside, moic, impliedIrr, fy30, cumDivPerShare, valuation,
     };
   }, [stockPrice, effr, fy29Effr, wacc, termGrowth, cmYieldBps, cmMix, expansionRate,
-      termEbitdaMargin, netNewAccounts, avgDeposit, iaReturn, dilution, payoutRate,
+      termEbitdaMargin, newCustDeposits, iaReturn, dilution, payoutRate,
       opexExMktg, smEfficiency, grossMargin, taxRate, fcfConversion]);
 
   // ─── Chart Data ───
@@ -421,7 +479,7 @@ export default function WealthfrontDCF() {
         const sum = pvFcfs.reduce((a, b) => a + b, 0);
         const tv = model.projYears[9].ufcf * (1 + tg) / (w - tg);
         const pvTv = tv / Math.pow(1 + w, 10);
-        return ((sum + pvTv + FY26.cash - model.totalPvSbc) / FY26.fdso);
+        return ((sum + pvTv + FY26.cash) / FY26.fdso);
       })
     }));
   }, [model]);
@@ -449,12 +507,11 @@ export default function WealthfrontDCF() {
 
       {showSecondary && (
         <div style={{ marginTop: 16 }}>
-          <Slider label="Net New Funded Accounts/Yr" value={netNewAccounts} onChange={setNetNewAccounts} min={50} max={400} step={5} format="number" suffix="K" />
-          <Slider label="Avg Initial Deposit" value={avgDeposit} onChange={setAvgDeposit} min={10} max={60} step={1} format="number" prefix="$" suffix="K" />
+          <Slider label="New Customer Deposits/Yr" value={newCustDeposits} onChange={setNewCustDeposits} min={0} max={10000} step={100} format="number" prefix="$" suffix="M" />
           <Slider label="IA Market Return" value={iaReturn} onChange={setIaReturn} min={0.03} max={0.12} step={0.005} format="pct" />
           <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" />
           <Slider label="Dividend Payout Rate" value={payoutRate} onChange={setPayoutRate} min={0} max={1.0} step={0.05} format="pct" />
-          <Slider label="OpEx ex-Marketing (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.50} step={0.01} format="pct" />
+          <Slider label="OpEx ex-Mktg FY27 (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.50} step={0.01} format="pct" />
           <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="M" />
           <Slider label="Gross Margin" value={grossMargin} onChange={setGrossMargin} min={0.80} max={0.95} step={0.01} format="pct" />
           <Slider label="Effective Tax Rate" value={taxRate} onChange={setTaxRate} min={0.15} max={0.30} step={0.01} format="pct" />
@@ -630,7 +687,6 @@ export default function WealthfrontDCF() {
                 { label: "PV of Terminal", value: model.pvGordonTV, color: C.purpleLight },
                 { label: "= Enterprise Value", value: model.gordonEV, color: C.lavender },
                 { label: "+ Cash", value: FY26.cash, color: C.green },
-                { label: "- PV of SBC", value: model.totalPvSbc, color: C.red, negative: true },
                 { label: "= Equity Value", value: model.gordonEquity, color: C.accent },
                 { label: `÷ ${FY26.fdso.toFixed(0)}M sh`, value: model.gordonPrice, isPrice: true, color: C.green },
               ].map((item, i) => {
@@ -648,7 +704,7 @@ export default function WealthfrontDCF() {
               })}
             </div>
             <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", marginTop: 8 }}>
-              Terminal Value = {fmtPct(model.pvGordonTV / model.gordonEV)} of Enterprise Value · SBC Dilution = {fmtM(model.totalPvSbc)} deducted
+              Terminal Value = {fmtPct(model.pvGordonTV / model.gordonEV)} of Enterprise Value
             </div>
           </div>
 
