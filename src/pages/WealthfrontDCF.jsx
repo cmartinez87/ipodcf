@@ -387,8 +387,8 @@ export default function WealthfrontDCF() {
         const adjEbitda = netIncome + interestExpense + tax + da + sbc;
         const ebitdaMargin = adjEbitda / totalRevenue;
 
-        // UFCF: Adj. EBITDA × FCF conversion (standard sell-side convention)
-        const ufcf = adjEbitda * fcfConversion;
+        // UFCF: Adj. EBITDA × FCF conversion, less after-tax SBC (dilution cost to shareholders)
+        const ufcf = adjEbitda * fcfConversion - sbc * (1 - taxRate);
 
         // Dividends
         const dividend = i >= 1 && netIncome > 0 ? netIncome * payoutRate / fdso : 0;
@@ -432,8 +432,8 @@ export default function WealthfrontDCF() {
         // EBIT from EBITDA
         const ebit = adjEbitda - da - sbc;
 
-        // UFCF: Adj. EBITDA × FCF conversion (consistent with detailed years)
-        const ufcf = adjEbitda * fcfConversion;
+        // UFCF: Adj. EBITDA × FCF conversion, less after-tax SBC (consistent with detailed years)
+        const ufcf = adjEbitda * fcfConversion - sbc * (1 - taxRate);
         const interestExpense = 0.891;
         const otherIncome = 10.813;
         const interestIncome = cash > 0 ? cash * currentEffr : 0;
