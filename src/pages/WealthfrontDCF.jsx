@@ -39,6 +39,39 @@ const fmtDollar = (v, d = 2) => `$${v.toFixed(d)}`;
 const fmtK = (v) => `${v.toFixed(0)}K`;
 const fmtX = (v, d = 1) => `${v.toFixed(d)}x`;
 
+// ─── Info Tooltip (replaces native title which doesn't render in iframes) ───
+function InfoTooltip({ text }) {
+  const [show, setShow] = useState(false);
+  if (!text) return null;
+  return (
+    <span
+      style={{ position: "relative", display: "inline-block", marginLeft: 4, cursor: "help" }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span style={{ fontSize: 11, color: C.textDim }}>ⓘ</span>
+      {show && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          background: C.cardAlt, border: `1px solid ${C.borderLight}`, borderRadius: 8,
+          padding: "10px 14px", width: 280, zIndex: 999,
+          fontSize: 12, lineHeight: 1.5, color: C.text, fontWeight: 400,
+          textTransform: "none", letterSpacing: 0,
+          boxShadow: `0 4px 20px rgba(0,0,0,0.5)`,
+          pointerEvents: "none",
+        }}>
+          {text}
+          <div style={{
+            position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%) rotate(45deg)",
+            width: 10, height: 10, background: C.cardAlt, borderRight: `1px solid ${C.borderLight}`,
+            borderBottom: `1px solid ${C.borderLight}`,
+          }} />
+        </div>
+      )}
+    </span>
+  );
+}
+
 // ─── Slider Component ───
 function Slider({ label, value, onChange, min, max, step, format = "pct", suffix = "", prefix = "", tooltip = "" }) {
   const displayVal = format === "pct" ? fmtPct(value)
@@ -52,7 +85,7 @@ function Slider({ label, value, onChange, min, max, step, format = "pct", suffix
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, cursor: tooltip ? "help" : "default" }} title={tooltip || undefined}>{label}{tooltip ? " ⓘ" : ""}</span>
+        <span style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>{label}<InfoTooltip text={tooltip} /></span>
         <span style={{ fontSize: 13, color: C.lavender, fontWeight: 700, fontFamily: "monospace" }}>{displayVal}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
