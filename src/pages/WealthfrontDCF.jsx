@@ -150,7 +150,7 @@ function getHashParam(key, fallback) {
 const PARAM_MAP = {
   sp: "stockPrice", effr: "effr", fy29: "fy29Effr", w: "wacc", tg: "termGrowth",
   cm: "cmYieldBps", mix: "cmMix", exp: "expansionRate", tm: "termEbitdaMargin",
-  dep: "newCustDeposits", ia: "iaReturn", dil: "dilution", pay: "payoutRate",
+  ncg: "netClientGrowth", avgd: "avgDeposit", ia: "iaReturn", dil: "dilution", pay: "payoutRate",
   opex: "opexExMktg", sm: "smEfficiency", gm: "grossMargin", tax: "taxRate", fcf: "fcfConversion",
 };
 
@@ -158,21 +158,21 @@ const PARAM_MAP = {
 const SCENARIOS = {
   falling: {
     label: "Falling", effr: 3.64, fy29Effr: 2.0, cmYieldBps: 45, cmMix: 0.22,
-    expansionRate: 0.035, newCustDeposits: 2500, iaReturn: 0.04,
+    expansionRate: 0.035, netClientGrowth: 0.008, avgDeposit: 15, iaReturn: 0.04,
     termEbitdaMargin: 0.55, wacc: 0.13, termGrowth: 0.03,
     opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.80, dilution: 0.01, payoutRate: 0.50,
   },
   flat: {
     label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.38,
-    expansionRate: 0.06, newCustDeposits: 4000, iaReturn: 0.07,
+    expansionRate: 0.06, netClientGrowth: 0.01, avgDeposit: 20, iaReturn: 0.07,
     termEbitdaMargin: 0.63, wacc: 0.13, termGrowth: 0.03,
     opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
   },
   rising: {
     label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 67, cmMix: 0.52,
-    expansionRate: 0.09, newCustDeposits: 8000, iaReturn: 0.09,
+    expansionRate: 0.09, netClientGrowth: 0.015, avgDeposit: 30, iaReturn: 0.09,
     termEbitdaMargin: 0.65, wacc: 0.13, termGrowth: 0.03,
     opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
@@ -195,7 +195,8 @@ export default function WealthfrontDCF() {
   // Secondary inputs — initialized from URL hash if present
   const hasHashParams = window.location.hash.length > 1;
   const [showSecondary, setShowSecondary] = useState(false);
-  const [newCustDeposits, setNewCustDeposits] = useState(() => getHashParam("dep", 4000));
+  const [netClientGrowth, setNetClientGrowth] = useState(() => getHashParam("ncg", 0.01));
+  const [avgDeposit, setAvgDeposit] = useState(() => getHashParam("avgd", 20));
   const [iaReturn, setIaReturn] = useState(() => getHashParam("ia", 0.07));
   const [dilution, setDilution] = useState(() => getHashParam("dil", 0.01));
   const [payoutRate, setPayoutRate] = useState(() => getHashParam("pay", 0.50));
@@ -214,7 +215,7 @@ export default function WealthfrontDCF() {
     setActiveScenario(key);
     setEffr(s.effr); setFy29Effr(s.fy29Effr); setCmYieldBps(s.cmYieldBps);
     setCmMix(s.cmMix); setExpansionRate(s.expansionRate);
-    setNewCustDeposits(s.newCustDeposits); setIaReturn(s.iaReturn);
+    setNetClientGrowth(s.netClientGrowth); setAvgDeposit(s.avgDeposit); setIaReturn(s.iaReturn);
     setTermEbitdaMargin(s.termEbitdaMargin); setWacc(s.wacc);
     setTermGrowth(s.termGrowth); setOpexExMktg(s.opexExMktg);
     setSmEfficiency(s.smEfficiency); setGrossMargin(s.grossMargin);
@@ -226,7 +227,7 @@ export default function WealthfrontDCF() {
     const params = new URLSearchParams({
       sp: stockPrice, effr, fy29: fy29Effr, w: wacc, tg: termGrowth,
       cm: cmYieldBps, mix: cmMix, exp: expansionRate, tm: termEbitdaMargin,
-      dep: newCustDeposits, ia: iaReturn, dil: dilution, pay: payoutRate,
+      ncg: netClientGrowth, avgd: avgDeposit, ia: iaReturn, dil: dilution, pay: payoutRate,
       opex: opexExMktg, sm: smEfficiency, gm: grossMargin, tax: taxRate, fcf: fcfConversion,
     });
     const url = `${window.location.origin}${window.location.pathname}#${params}`;
@@ -312,15 +313,17 @@ export default function WealthfrontDCF() {
         const iaMix = 1 - Math.max(curCmMix, 0.15);
         const actualCmMix = 1 - iaMix;
 
-        // Client growth (approximate from new customer deposits)
-        const impliedNewAccounts = newCustDeposits / 20; // assume ~$20K avg deposit for client count
-        const newAccounts = impliedNewAccounts * (1 + i * 0.02);
+        // Client growth: net new funded clients = monthly rate × current base × 12
+        const newAccounts = clients * netClientGrowth * 12;
         clients += newAccounts;
+
+        // New customer deposits: new accounts × avg initial deposit ($K → $M)
+        const newCustDeposits = newAccounts * avgDeposit; // already in $M (clients in K × $K = $M)
 
         // Existing customer deposits
         const existingDeposits = totalAssets * expansionRate;
 
-        // New customer deposits: direct $ input
+        // Total new deposits
         const newDeposits = newCustDeposits;
 
         // Total net deposits
@@ -546,7 +549,7 @@ export default function WealthfrontDCF() {
       upside, moic, impliedIrr, fy30, cumDivPerShare, valuation,
     };
   }, [stockPrice, effr, fy29Effr, wacc, termGrowth, cmYieldBps, cmMix, expansionRate,
-      termEbitdaMargin, newCustDeposits, iaReturn, dilution, payoutRate,
+      termEbitdaMargin, netClientGrowth, avgDeposit, iaReturn, dilution, payoutRate,
       opexExMktg, smEfficiency, grossMargin, taxRate, fcfConversion]);
 
   // ─── Chart Data ───
@@ -617,7 +620,8 @@ export default function WealthfrontDCF() {
 
       {showSecondary && (
         <div style={{ marginTop: 16 }}>
-          <Slider label="New Customer Deposits/Yr" value={newCustDeposits} onChange={setNewCustDeposits} min={0} max={10000} step={100} format="number" prefix="$" suffix="M" />
+          <Slider label="Net New Clients/Mo (% Base)" value={netClientGrowth} onChange={setNetClientGrowth} min={0} max={0.02} step={0.001} format="pct" />
+          <Slider label="Avg Initial Deposit ($K)" value={avgDeposit} onChange={setAvgDeposit} min={5} max={50} step={1} format="number" prefix="$" suffix="K" />
           <Slider label="IA Market Return" value={iaReturn} onChange={setIaReturn} min={0.03} max={0.12} step={0.005} format="pct" />
           <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" />
           <Slider label="Dividend Payout Rate" value={payoutRate} onChange={setPayoutRate} min={0} max={1.0} step={0.05} format="pct" />
