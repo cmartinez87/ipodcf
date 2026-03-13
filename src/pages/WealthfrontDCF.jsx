@@ -154,6 +154,31 @@ const PARAM_MAP = {
   opex: "opexExMktg", sm: "smEfficiency", gm: "grossMargin", tax: "taxRate", fcf: "fcfConversion",
 };
 
+// ─── Interest Rate Scenario Presets (from v9 Excel model) ───
+const SCENARIOS = {
+  falling: {
+    label: "Falling", effr: 3.64, fy29Effr: 2.0, cmYieldBps: 45, cmMix: 0.22,
+    expansionRate: 0.035, newCustDeposits: 2500, iaReturn: 0.04,
+    termEbitdaMargin: 0.55, wacc: 0.13, termGrowth: 0.03,
+    opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
+    fcfConversion: 0.80, dilution: 0.01, payoutRate: 0.50,
+  },
+  flat: {
+    label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.38,
+    expansionRate: 0.06, newCustDeposits: 4000, iaReturn: 0.07,
+    termEbitdaMargin: 0.63, wacc: 0.13, termGrowth: 0.03,
+    opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
+    fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
+  },
+  rising: {
+    label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 67, cmMix: 0.52,
+    expansionRate: 0.09, newCustDeposits: 8000, iaReturn: 0.09,
+    termEbitdaMargin: 0.65, wacc: 0.13, termGrowth: 0.03,
+    opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
+    fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
+  },
+};
+
 // ─── Main Component ───
 export default function WealthfrontDCF() {
   // Primary inputs — initialized from URL hash if present
@@ -180,8 +205,22 @@ export default function WealthfrontDCF() {
   const [taxRate, setTaxRate] = useState(() => getHashParam("tax", 0.21));
   const [fcfConversion, setFcfConversion] = useState(() => getHashParam("fcf", 0.85));
 
-  // Share state: copied feedback
+  // Scenario & share state
+  const [activeScenario, setActiveScenario] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  const applyScenario = (key) => {
+    const s = SCENARIOS[key];
+    setActiveScenario(key);
+    setEffr(s.effr); setFy29Effr(s.fy29Effr); setCmYieldBps(s.cmYieldBps);
+    setCmMix(s.cmMix); setExpansionRate(s.expansionRate);
+    setNewCustDeposits(s.newCustDeposits); setIaReturn(s.iaReturn);
+    setTermEbitdaMargin(s.termEbitdaMargin); setWacc(s.wacc);
+    setTermGrowth(s.termGrowth); setOpexExMktg(s.opexExMktg);
+    setSmEfficiency(s.smEfficiency); setGrossMargin(s.grossMargin);
+    setTaxRate(s.taxRate); setFcfConversion(s.fcfConversion);
+    setDilution(s.dilution); setPayoutRate(s.payoutRate);
+  };
 
   const handleShare = () => {
     const params = new URLSearchParams({
@@ -589,6 +628,24 @@ export default function WealthfrontDCF() {
           <Slider label="FCF Conversion %" value={fcfConversion} onChange={setFcfConversion} min={0.65} max={0.95} step={0.01} format="pct" />
         </div>
       )}
+
+      <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
+      <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 10, textAlign: "center" }}>Interest Rate Scenarios</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {Object.entries(SCENARIOS).map(([key, s]) => (
+          <button key={key} onClick={() => applyScenario(key)}
+            style={{
+              flex: 1, padding: "8px 4px", borderRadius: 6, cursor: "pointer",
+              fontSize: 12, fontWeight: 700, letterSpacing: 0.5, transition: "all 0.2s ease",
+              background: activeScenario === key ? C.purpleDark : C.cardAlt,
+              border: `1px solid ${activeScenario === key ? C.purple : C.border}`,
+              color: activeScenario === key ? C.lavender : C.textMuted,
+            }}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: 9, color: C.textDim, textAlign: "center", marginTop: 6 }}>Quick-set to v9 Excel scenario defaults</div>
     </div>
   );
 
@@ -599,7 +656,7 @@ export default function WealthfrontDCF() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Wealthfront DCF Model</div>
-        <span style={{ background: C.purpleDark, color: C.lavender, padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>WLTH · INTERNAL</span>
+        <span style={{ background: C.purpleDark, color: C.lavender, padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>WLTH</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 12, color: C.textDim }}>10-Year DCF with Gordon Growth Terminal Value · FY Ends Jan 31</div>
