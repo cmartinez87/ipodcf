@@ -40,7 +40,7 @@ const fmtK = (v) => `${v.toFixed(0)}K`;
 const fmtX = (v, d = 1) => `${v.toFixed(d)}x`;
 
 // ─── Slider Component ───
-function Slider({ label, value, onChange, min, max, step, format = "pct", suffix = "", prefix = "" }) {
+function Slider({ label, value, onChange, min, max, step, format = "pct", suffix = "", prefix = "", tooltip = "" }) {
   const displayVal = format === "pct" ? fmtPct(value)
     : format === "dollar" ? fmtDollar(value)
     : format === "dollarK" ? `$${(value/1000).toFixed(0)}K`
@@ -52,7 +52,7 @@ function Slider({ label, value, onChange, min, max, step, format = "pct", suffix
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, cursor: tooltip ? "help" : "default" }} title={tooltip || undefined}>{label}{tooltip ? " ⓘ" : ""}</span>
         <span style={{ fontSize: 13, color: C.lavender, fontWeight: 700, fontFamily: "monospace" }}>{displayVal}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
@@ -166,7 +166,7 @@ const SCENARIOS = {
   flat: {
     label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.38,
     expansionRate: 0.06, netClientGrowth: 0.01, avgDeposit: 20, iaReturn: 0.07,
-    termEbitdaMargin: 0.63, wacc: 0.13, termGrowth: 0.03,
+    termEbitdaMargin: 0.60, wacc: 0.13, termGrowth: 0.03,
     opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
   },
@@ -174,7 +174,7 @@ const SCENARIOS = {
     label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 67, cmMix: 0.52,
     expansionRate: 0.09, netClientGrowth: 0.015, avgDeposit: 30, iaReturn: 0.09,
     termEbitdaMargin: 0.65, wacc: 0.13, termGrowth: 0.03,
-    opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
+    opexExMktg: 0.35, smEfficiency: 200, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
   },
 };
@@ -190,7 +190,7 @@ export default function WealthfrontDCF() {
   const [cmYieldBps, setCmYieldBps] = useState(() => getHashParam("cm", 62));
   const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.35));
   const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.055));
-  const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.63));
+  const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.60));
 
   // Secondary inputs — initialized from URL hash if present
   const hasHashParams = window.location.hash.length > 1;
@@ -285,8 +285,9 @@ export default function WealthfrontDCF() {
     // Revenue growth deceleration schedule for extended years (FY31-36, i=4..9)
     // Mirrors v8 Flat scenario: 12% → 9% → 7% → 5% → 3.5% → 3%
     const extendedGrowthRates = [0.12, 0.09, 0.07, 0.05, 0.035, 0.03];
-    // Extended EBITDA margins ramp toward terminal
-    const extendedEbitdaMargins = [0.60, 0.61, 0.62, 0.625, 0.63, 0.63];
+    // Extended EBITDA margins: computed dynamically after FY30 detailed margin is known
+    // Will be populated after the detailed projection loop (see below)
+    let extendedEbitdaMargins = null; // placeholder — set after FY27-FY30 loop
     // Extended FCF conversion ramps
     const extendedFcfConversion = [0.82, 0.83, 0.84, 0.84, 0.85, 0.85];
 
@@ -420,6 +421,16 @@ export default function WealthfrontDCF() {
       } else {
         // ─── Top-down extended projection (FY31-FY36) ───
         const extIdx = i - 4; // 0..5
+
+        // On first extended year, compute margin ramp from FY30's actual margin to terminal
+        if (!extendedEbitdaMargins) {
+          const fy30Margin = projYears[3].ebitdaMargin;
+          extendedEbitdaMargins = Array.from({ length: 6 }, (_, k) => {
+            const t = (k + 1) / 6; // linear interpolation: 1/6 → 6/6
+            return fy30Margin + (termEbitdaMargin - fy30Margin) * t;
+          });
+        }
+
         const revGrowth = extendedGrowthRates[extIdx];
         const totalRevenue = prevRevenue * (1 + revGrowth);
         const ebitdaMargin = extendedEbitdaMargins[extIdx];
@@ -604,10 +615,10 @@ export default function WealthfrontDCF() {
       <NumberInput label="Current EFFR" value={effr} onChange={setEffr} suffix="%" prefix="" />
       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
       <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 16 }}>Primary Assumptions</div>
-      <Slider label="FY29 EFFR Target" value={fy29Effr} onChange={setFy29Effr} min={1.0} max={6.0} step={0.1} format="number" suffix="%" />
-      <Slider label="CM Yield on Avg Assets" value={cmYieldBps} onChange={setCmYieldBps} min={20} max={100} step={1} format="number" suffix=" bps" />
-      <Slider label="CM Deposit Mix" value={cmMix} onChange={setCmMix} min={0.10} max={0.65} step={0.01} format="pct" />
-      <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.02} max={0.12} step={0.005} format="pct" />
+      <Slider label="FY29 EFFR Target" value={fy29Effr} onChange={setFy29Effr} min={1.0} max={6.0} step={0.1} format="number" suffix="%" tooltip="Effective Federal Funds Rate — the Fed's benchmark overnight rate. Drives cash management yields and EFFR glide path from current rate to this target by FY29." />
+      <Slider label="CM Yield on Avg Assets" value={cmYieldBps} onChange={setCmYieldBps} min={20} max={100} step={1} format="number" suffix=" bps" tooltip="Cash Management revenue yield in basis points on average CM assets. Wealthfront earns this spread on client cash deposits (HYSA, money market, treasuries)." />
+      <Slider label="CM Deposit Mix" value={cmMix} onChange={setCmMix} min={0.10} max={0.65} step={0.01} format="pct" tooltip="Percentage of total net new deposits allocated to Cash Management vs. Investment Advisory. Higher mix = more deposits into lower-yield but stickier cash products." />
+      <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.02} max={0.12} step={0.005} format="pct" tooltip="Annual net deposit growth from existing clients as a % of beginning AUM. Captures organic wallet share gains — existing clients adding funds beyond initial deposit." />
       <Slider label="Terminal EBITDA Margin" value={termEbitdaMargin} onChange={setTermEbitdaMargin} min={0.45} max={0.75} step={0.01} format="pct" />
       <Slider label="WACC" value={wacc} onChange={setWacc} min={0.08} max={0.18} step={0.005} format="pct" />
       <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.01} max={0.05} step={0.005} format="pct" />
@@ -622,11 +633,11 @@ export default function WealthfrontDCF() {
         <div style={{ marginTop: 16 }}>
           <Slider label="Net New Clients/Mo (% Base)" value={netClientGrowth} onChange={setNetClientGrowth} min={0} max={0.02} step={0.001} format="pct" />
           <Slider label="Avg Initial Deposit ($K)" value={avgDeposit} onChange={setAvgDeposit} min={5} max={50} step={1} format="number" prefix="$" suffix="K" />
-          <Slider label="IA Market Return" value={iaReturn} onChange={setIaReturn} min={0.03} max={0.12} step={0.005} format="pct" />
+          <Slider label="IA Market Return" value={iaReturn} onChange={setIaReturn} min={0.03} max={0.12} step={0.005} format="pct" tooltip="Annual market return assumption for Investment Advisory assets. Drives IA AUM growth from market appreciation (separate from new deposits). Based on blended equity/bond portfolio returns." />
           <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" />
           <Slider label="Dividend Payout Rate" value={payoutRate} onChange={setPayoutRate} min={0} max={1.0} step={0.05} format="pct" />
           <Slider label="OpEx ex-Mktg FY27 (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.50} step={0.01} format="pct" />
-          <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="M" />
+          <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="" tooltip="Sales & Marketing efficiency — net new deposits generated per $1M of S&M spend. Higher = more efficient client acquisition. FY26A was ~$125 deposits per $1M S&M spend." />
           <Slider label="Gross Margin" value={grossMargin} onChange={setGrossMargin} min={0.80} max={0.95} step={0.01} format="pct" />
           <Slider label="Effective Tax Rate" value={taxRate} onChange={setTaxRate} min={0.15} max={0.30} step={0.01} format="pct" />
           <Slider label="FCF Conversion %" value={fcfConversion} onChange={setFcfConversion} min={0.65} max={0.95} step={0.01} format="pct" />
@@ -682,9 +693,9 @@ export default function WealthfrontDCF() {
           <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
             <KPICard title="DCF Implied Price" value={fmtDollar(model.gordonPrice)} subtitle="Gordon Growth method" color={model.gordonPrice > stockPrice ? C.green : C.red} />
             <KPICard title="Upside / Downside" value={`${model.upside >= 0 ? "+" : ""}${(model.upside * 100).toFixed(0)}%`} subtitle={`vs ${fmtDollar(stockPrice)} entry`} color={model.upside >= 0 ? C.green : C.red} />
-            <KPICard title="Implied P/E (Ex-Cash)" value={model.gordonImpliedPE > 0 ? fmtX(model.gordonImpliedPE) : "N/M"} subtitle="FY30E earnings" color={C.lavender} />
-            <KPICard title="Implied EV/EBITDA" value={fmtX(model.gordonImpliedEvEbitda)} subtitle="FY30E adj. EBITDA" color={C.lavender} />
-            <KPICard title="~4Yr IRR" value={fmtPct(model.impliedIrr)} subtitle={`${fmtX(model.moic)} MOIC incl. divs`} color={model.impliedIrr > 0 ? C.green : C.red} />
+            <KPICard title="Exit P/E (Ex-Cash)" value={model.gordonImpliedPE > 0 ? fmtX(model.gordonImpliedPE) : "N/M"} subtitle="DCF-implied on FY30E" color={C.lavender} />
+            <KPICard title="Exit EV/EBITDA" value={fmtX(model.gordonImpliedEvEbitda)} subtitle="DCF-implied on FY30E" color={C.lavender} />
+            <KPICard title="~4Yr IRR" value={fmtPct(model.impliedIrr)} subtitle={`${fmtX(model.moic)} MOIC · ${fmtX(model.gordonImpliedEvEbitda)} exit`} color={model.impliedIrr > 0 ? C.green : C.red} />
             <KPICard title="Implied Take Rate" value={fmtPct(model.fy30.blendedYield, 2)} subtitle="FY30E Rev / Avg AUM" color={C.amber} />
           </div>
 
@@ -752,6 +763,39 @@ export default function WealthfrontDCF() {
             </div>
           </div>
 
+          {/* Chart: EFFR & Implied CM Payout Rate */}
+          <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>EFFR & Implied CM Payout Rate (%)</div>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={rateData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="fy" tick={{ fontSize: 10, fill: C.textDim }} />
+                <YAxis tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => `${v}%`} domain={['dataMin - 0.2', 'dataMax + 0.2']} />
+                <Tooltip contentStyle={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, color: C.text }}
+                  formatter={(v) => [`${v}%`]} />
+                <Line dataKey="effr" name="EFFR" stroke={C.amber} strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                <Line dataKey="cmPayout" name="CM Payout Rate" stroke={C.green} strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Chart: Platform AUM */}
+          <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Platform AUM ($B) — CM vs IA & YoY Growth</div>
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="fy" tick={{ fontSize: 10, fill: C.textDim }} />
+                <YAxis tick={{ fontSize: 10, fill: C.textDim }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => fmtPct(v, 0)} domain={[0, 0.5]} />
+                <Tooltip content={<AUMTooltip />} />
+                <Bar dataKey="cm" name="Cash Mgmt" stackId="a" fill={C.purpleDark} radius={[0,0,0,0]} />
+                <Bar dataKey="ia" name="Investment Advisory" stackId="a" fill={C.purpleLight} radius={[2,2,0,0]} />
+                <Line dataKey="aumGrowth" name="AUM Growth" yAxisId="right" stroke={C.green} strokeWidth={2} dot={{ r: 3, fill: C.green }} connectNulls={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
           {/* Chart: Revenue & YoY Growth */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Revenue ($M) & YoY Growth</div>
@@ -808,23 +852,6 @@ export default function WealthfrontDCF() {
             </ResponsiveContainer>
           </div>
 
-          {/* Chart: Platform AUM */}
-          <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Platform AUM ($B) — CM vs IA & YoY Growth</div>
-            <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                <XAxis dataKey="fy" tick={{ fontSize: 10, fill: C.textDim }} />
-                <YAxis tick={{ fontSize: 10, fill: C.textDim }} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => fmtPct(v, 0)} domain={[0, 0.5]} />
-                <Tooltip content={<AUMTooltip />} />
-                <Bar dataKey="cm" name="Cash Mgmt" stackId="a" fill={C.purpleDark} radius={[0,0,0,0]} />
-                <Bar dataKey="ia" name="Investment Advisory" stackId="a" fill={C.purpleLight} radius={[2,2,0,0]} />
-                <Line dataKey="aumGrowth" name="AUM Growth" yAxisId="right" stroke={C.green} strokeWidth={2} dot={{ r: 3, fill: C.green }} connectNulls={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-
           {/* Chart: Funded Clients with Growth % */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Funded Clients (K) & YoY Growth</div>
@@ -838,22 +865,6 @@ export default function WealthfrontDCF() {
                 <Bar dataKey="clients" name="Funded Clients" fill={C.lavender} radius={[2,2,0,0]} />
                 <Line dataKey="clientGrowth" name="YoY Growth" yAxisId="right" stroke={C.amber} strokeWidth={2} dot={{ r: 3, fill: C.amber }} connectNulls={false} />
               </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Chart: EFFR & Implied CM Payout Rate */}
-          <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>EFFR & Implied CM Payout Rate (%)</div>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={rateData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                <XAxis dataKey="fy" tick={{ fontSize: 10, fill: C.textDim }} />
-                <YAxis tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => `${v}%`} domain={['dataMin - 0.2', 'dataMax + 0.2']} />
-                <Tooltip contentStyle={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, color: C.text }}
-                  formatter={(v) => [`${v}%`]} />
-                <Line dataKey="effr" name="EFFR" stroke={C.amber} strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                <Line dataKey="cmPayout" name="CM Payout Rate" stroke={C.green} strokeWidth={2} dot={false} />
-              </LineChart>
             </ResponsiveContainer>
           </div>
 
