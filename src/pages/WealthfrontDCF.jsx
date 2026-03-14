@@ -649,12 +649,12 @@ export default function WealthfrontDCF() {
       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
       <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 16 }}>Primary Assumptions</div>
       <Slider label="FY29 EFFR Target" value={fy29Effr} onChange={setFy29Effr} min={1.0} max={6.0} step={0.1} format="number" suffix="%" tooltip="Effective Federal Funds Rate — the Fed's benchmark overnight rate. Drives cash management yields and EFFR glide path from current rate to this target by FY29." />
-      <Slider label="CM Yield on Avg Assets" value={cmYieldBps} onChange={setCmYieldBps} min={20} max={100} step={1} format="number" suffix=" bps" tooltip="Cash Management revenue yield in basis points on average CM assets. Wealthfront earns this spread on client cash deposits (HYSA, money market, treasuries)." />
-      <Slider label="CM Deposit Mix" value={cmMix} onChange={setCmMix} min={0.10} max={0.65} step={0.01} format="pct" tooltip="Percentage of total net new deposits allocated to Cash Management vs. Investment Advisory. Higher mix = more deposits into lower-yield but stickier cash products." />
+      <Slider label="CM Yield on Avg Assets" value={cmYieldBps} onChange={setCmYieldBps} min={20} max={100} step={1} format="number" suffix=" bps" tooltip="The spread in basis points that Wealthfront earns on Cash Management assets. This is the difference between the yield clients earn and the yield Wealthfront earns on cash." />
+      <Slider label="CM Deposit Mix" value={cmMix} onChange={setCmMix} min={0.10} max={0.65} step={0.01} format="pct" tooltip="Percentage of total client net deposits allocated to Cash Management (with the remaining in Investment Advisory). Higher mix = more deposits into higher margin Cash Management product." />
       <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.02} max={0.12} step={0.005} format="pct" tooltip="Annual net deposit growth from existing clients as a % of beginning AUM. Captures organic wallet share gains — existing clients adding funds beyond initial deposit." />
-      <Slider label="Terminal EBITDA Margin" value={termEbitdaMargin} onChange={setTermEbitdaMargin} min={0.45} max={0.75} step={0.01} format="pct" />
-      <Slider label="WACC" value={wacc} onChange={setWacc} min={0.08} max={0.18} step={0.005} format="pct" />
-      <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.01} max={0.05} step={0.005} format="pct" />
+      <Slider label="Terminal EBITDA Margin" value={termEbitdaMargin} onChange={setTermEbitdaMargin} min={0.45} max={0.75} step={0.01} format="pct" tooltip="The steady-state Adj. EBITDA margin Wealthfront reaches by FY36. Model linearly interpolates from FY30's computed margin to this target over FY31–FY36." />
+      <Slider label="WACC" value={wacc} onChange={setWacc} min={0.08} max={0.18} step={0.005} format="pct" tooltip="Weighted average cost of capital used to discount projected free cash flows back to present value. Higher WACC = lower implied price. 13% reflects a mid-stage fintech with public market liquidity." />
+      <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.01} max={0.05} step={0.005} format="pct" tooltip="Perpetual growth rate applied to terminal year FCF in the Gordon Growth model. Should not exceed long-run nominal GDP growth (~3–4%). Higher = larger terminal value." />
 
       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
       <button onClick={() => setShowSecondary(!showSecondary)}
@@ -664,16 +664,16 @@ export default function WealthfrontDCF() {
 
       {showSecondary && (
         <div style={{ marginTop: 16 }}>
-          <Slider label="Net New Clients/Mo (% Base)" value={netClientGrowth} onChange={setNetClientGrowth} min={0} max={0.02} step={0.001} format="pct" />
-          <Slider label="Avg Initial Deposit ($K)" value={avgDeposit} onChange={setAvgDeposit} min={5} max={50} step={1} format="number" prefix="$" suffix="K" />
+          <Slider label="Net New Clients/Mo (% Base)" value={netClientGrowth} onChange={setNetClientGrowth} min={0} max={0.02} step={0.001} format="pct" tooltip="Monthly net new funded client additions as a percentage of the existing client base. 1% monthly ≈ 12% annualized client growth." />
+          <Slider label="Avg Initial Deposit ($K)" value={avgDeposit} onChange={setAvgDeposit} min={5} max={50} step={1} format="number" prefix="$" suffix="K" tooltip="Average first deposit size for new funded clients, in thousands. New customer deposits = new accounts × this amount. Wealthfront's current average is ~$20K." />
           <Slider label="IA Market Return" value={iaReturn} onChange={setIaReturn} min={0.03} max={0.12} step={0.005} format="pct" tooltip="Annual market return assumption for Investment Advisory assets. Drives IA AUM growth from market appreciation (separate from new deposits). Based on blended equity/bond portfolio returns." />
-          <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" />
-          <Slider label="Dividend Payout Rate" value={payoutRate} onChange={setPayoutRate} min={0} max={1.0} step={0.05} format="pct" />
-          <Slider label="OpEx ex-Mktg FY27 (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.50} step={0.01} format="pct" />
+          <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" tooltip="Annual increase in fully diluted shares outstanding from stock-based compensation. 1% = ~1.9M new shares/year at current FDSO of 187M." />
+          <Slider label="Dividend Payout Rate" value={payoutRate} onChange={setPayoutRate} min={0} max={1.0} step={0.05} format="pct" tooltip="Percentage of net income returned to shareholders as dividends starting FY28. 0% = all earnings reinvested. Wealthfront has not yet initiated a dividend." />
+          <Slider label="OpEx ex-Mktg FY27 (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.50} step={0.01} format="pct" tooltip="Non-marketing operating expenses (R&D, G&A) as a percentage of revenue in FY27. Declines 1pp/year through FY30 to model operating leverage." />
           <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="" tooltip="Sales & Marketing efficiency — net new deposits generated per $1M of S&M spend. Higher = more efficient client acquisition. FY26A was ~$125 deposits per $1M S&M spend." />
-          <Slider label="Gross Margin" value={grossMargin} onChange={setGrossMargin} min={0.80} max={0.95} step={0.01} format="pct" />
-          <Slider label="Effective Tax Rate" value={taxRate} onChange={setTaxRate} min={0.15} max={0.30} step={0.01} format="pct" />
-          <Slider label="FCF Conversion %" value={fcfConversion} onChange={setFcfConversion} min={0.65} max={0.95} step={0.01} format="pct" />
+          <Slider label="Gross Margin" value={grossMargin} onChange={setGrossMargin} min={0.80} max={0.95} step={0.01} format="pct" tooltip="Revenue less cost of revenue (fund expenses, payment processing, data costs) as a percentage of revenue. Wealthfront's FY26A gross margin was ~90%." />
+          <Slider label="Effective Tax Rate" value={taxRate} onChange={setTaxRate} min={0.15} max={0.30} step={0.01} format="pct" tooltip="Blended federal + state tax rate applied to pre-tax income. 21% = federal statutory rate. Actual rate may differ due to NOLs, state taxes, and R&D credits." />
+          <Slider label="FCF Conversion %" value={fcfConversion} onChange={setFcfConversion} min={0.65} max={0.95} step={0.01} format="pct" tooltip="Percentage of Adj. EBITDA converted to unlevered free cash flow after capex and working capital changes. Higher = more cash-generative business." />
         </div>
       )}
 
