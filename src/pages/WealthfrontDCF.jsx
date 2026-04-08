@@ -31,6 +31,26 @@ const HIST = {
   FY26: { revenue: 365.0, ebitda: 170.4, assets: 94089, cm: 45361, ia: 48728, clients: 1417 },
 };
 
+// ─── Monthly Metrics (trailing 16mo, updated April 2026) ───
+const MONTHLY = [
+  { month: "Dec '24", platform: 78487, cm: 42088, ia: 36400, deposits: 874,  clients: 1189 },
+  { month: "Jan '25", platform: 80175, cm: 42411, ia: 37764, deposits: 782,  clients: 1212 },
+  { month: "Feb '25", platform: 81251, cm: 43281, ia: 37970, deposits: 1090, clients: 1229 },
+  { month: "Mar '25", platform: 81355, cm: 44311, ia: 37044, deposits: 1203, clients: 1246 },
+  { month: "Apr '25", platform: 80858, cm: 43774, ia: 37085, deposits: -503, clients: 1264 },
+  { month: "May '25", platform: 83904, cm: 44935, ia: 38969, deposits: 1412, clients: 1279 },
+  { month: "Jun '25", platform: 86483, cm: 45706, ia: 40777, deposits: 1004, clients: 1295 },
+  { month: "Jul '25", platform: 88175, cm: 46579, ia: 41596, deposits: 1246, clients: 1318 },
+  { month: "Aug '25", platform: 90192, cm: 47243, ia: 42949, deposits: 1006, clients: 1342 },
+  { month: "Sep '25", platform: 92025, cm: 47381, ia: 44644, deposits: 513,  clients: 1364 },
+  { month: "Oct '25", platform: 92821, cm: 47011, ia: 45811, deposits: 49,   clients: 1378 },
+  { month: "Nov '25", platform: 93010, cm: 46802, ia: 46208, deposits: 95,   clients: 1390 },
+  { month: "Dec '25", platform: 93040, cm: 46200, ia: 46840, deposits: -208, clients: 1402 },
+  { month: "Jan '26", platform: 94106, cm: 45361, ia: 48745, deposits: -247, clients: 1417 },
+  { month: "Feb '26", platform: 95213, cm: 45215, ia: 49998, deposits: 271,  clients: 1429 },
+  { month: "Mar '26", platform: 93187, cm: 45459, ia: 47728, deposits: 596,  clients: 1443 },
+];
+
 // ─── Helpers ───
 const fmt = (v, d = 1) => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : v >= 1 ? `$${v.toFixed(d)}B` : `$${(v*1000).toFixed(0)}M`;
 const fmtM = (v, d = 0) => `$${v.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}M`;
@@ -197,14 +217,14 @@ const SCENARIOS = {
     fcfConversion: 0.80, dilution: 0.01, payoutRate: 0.50,
   },
   flat: {
-    label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.38,
+    label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 66, cmMix: 0.40,
     expansionRate: 0.06, netClientGrowth: 0.01, avgDeposit: 20, iaReturn: 0.07,
     termEbitdaMargin: 0.60, wacc: 0.13, termGrowth: 0.03,
     opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
   },
   rising: {
-    label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 67, cmMix: 0.52,
+    label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 72, cmMix: 0.52,
     expansionRate: 0.09, netClientGrowth: 0.015, avgDeposit: 30, iaReturn: 0.09,
     termEbitdaMargin: 0.65, wacc: 0.13, termGrowth: 0.03,
     opexExMktg: 0.35, smEfficiency: 200, grossMargin: 0.90, taxRate: 0.21,
@@ -215,13 +235,13 @@ const SCENARIOS = {
 // ─── Main Component ───
 export default function WealthfrontDCF() {
   // Primary inputs — initialized from URL hash if present
-  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 8.00));
+  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 9.57));
   const [effr, setEffr] = useState(() => getHashParam("effr", 3.64));
   const [fy29Effr, setFy29Effr] = useState(() => getHashParam("fy29", 3.60));
   const [wacc, setWacc] = useState(() => getHashParam("w", 0.13));
   const [termGrowth, setTermGrowth] = useState(() => getHashParam("tg", 0.03));
-  const [cmYieldBps, setCmYieldBps] = useState(() => getHashParam("cm", 62));
-  const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.35));
+  const [cmYieldBps, setCmYieldBps] = useState(() => getHashParam("cm", 66));
+  const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.40));
   const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.055));
   const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.60));
 
@@ -447,6 +467,7 @@ export default function WealthfrontDCF() {
           adjEbitda, ebitdaMargin, da, sbc,
           ufcf, cash, cashPerShare, dividend, interestIncome,
           revenueGrowth: (totalRevenue - prevRevenue) / prevRevenue,
+          totalNetDeposits,
         });
 
         prevRevenue = totalRevenue;
@@ -901,6 +922,100 @@ export default function WealthfrontDCF() {
             </ResponsiveContainer>
           </div>
 
+          {/* Monthly Metrics Tracker */}
+          <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Platform Assets ($B) & Net Deposits ($M)</div>
+            <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Trailing 16 months · Latest: March 2026</div>
+            <ResponsiveContainer width="100%" height={260}>
+              <ComposedChart data={MONTHLY} margin={{ top: 5, right: 40, bottom: 5, left: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="month" tick={{ fontSize: 9, fill: C.textDim }} interval={1} />
+                <YAxis tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => `$${(v / 1000).toFixed(0)}B`} domain={[70000, 100000]} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => `${v > 0 ? "" : ""}${v.toLocaleString()}`} />
+                <Tooltip contentStyle={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, color: C.text }}
+                  formatter={(v, name) => name === "deposits" ? [`$${v.toLocaleString()}M`, "Net Deposits"] : [`$${(v / 1000).toFixed(1)}B`, name === "cm" ? "CM Assets" : "IA Assets"]} />
+                <Area dataKey="cm" stackId="1" fill={C.purpleDark} fillOpacity={0.6} stroke={C.purpleDark} name="cm" />
+                <Area dataKey="ia" stackId="1" fill={C.purpleLight} fillOpacity={0.4} stroke={C.purpleLight} name="ia" />
+                <Bar yAxisId="right" dataKey="deposits" name="deposits" fill={C.green} fillOpacity={0.7} radius={[2, 2, 0, 0]} />
+              </ComposedChart>
+            </ResponsiveContainer>
+            <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+              {[
+                { label: "Platform AUM", value: "$93.2B", delta: "-2.1% MoM", neg: true },
+                { label: "CM Assets", value: "$45.5B", delta: "+0.5% MoM", neg: false },
+                { label: "IA Assets", value: "$47.7B", delta: "-4.5% MoM", neg: true },
+                { label: "Net Deposits", value: "$596M", delta: "vs $271M Feb", neg: false },
+                { label: "Funded Clients", value: "1.44M", delta: "+1.0% MoM", neg: false },
+                { label: "CM Dep Mix", value: "40.9%", delta: "$244M / $596M", neg: false },
+              ].map(({ label, value, delta, neg }) => (
+                <div key={label} style={{ flex: "1 1 130px", padding: "8px 12px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>{value}</div>
+                  <div style={{ fontSize: 10, color: neg ? C.red : C.green }}>{delta}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Monthly Net Deposits Trend */}
+          <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Net Deposits ($M) — CM vs IA Split</div>
+            <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Trailing 16 months · Bars split by CM (dark) and IA (light)</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={MONTHLY.map(m => ({ ...m, cmDep: m.month === "Dec '24" ? null : (() => { const idx = MONTHLY.indexOf(m); return idx <= 0 ? null : [
+                // CM/IA deposit split from monthly metrics where available
+                // Using reported splits for months with data, estimated for others
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, -145, 244
+              ][idx]; })(), iaDep: m.month === "Dec '24" ? null : (() => { const idx = MONTHLY.indexOf(m); return idx <= 0 ? null : [
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, 416, 352
+              ][idx]; })() }))} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="month" tick={{ fontSize: 9, fill: C.textDim }} interval={1} />
+                <YAxis tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => `$${v.toLocaleString()}`} />
+                <Tooltip contentStyle={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, color: C.text }}
+                  formatter={(v, name) => [`$${v != null ? v.toLocaleString() : 0}M`, name === "deposits" ? "Total Net Deposits" : name === "cmDep" ? "CM Deposits" : "IA Deposits"]} />
+                <Bar dataKey="deposits" name="deposits" fill={C.lavender} fillOpacity={0.7} radius={[2, 2, 0, 0]} />
+                {/* Reference line at 0 */}
+                <Line dataKey={() => 0} stroke={C.textDim} strokeWidth={1} dot={false} strokeDasharray="3 3" activeDot={false} legendType="none" />
+              </ComposedChart>
+            </ResponsiveContainer>
+
+            {/* Annualized run-rate vs model assumption */}
+            {(() => {
+              const recent3 = MONTHLY.slice(-3);
+              const avg3mo = recent3.reduce((s, m) => s + m.deposits, 0) / 3;
+              const annualized = avg3mo * 12;
+              const fy27Deposits = model.projYears.length > 0 ? model.projYears[0].totalNetDeposits : 0;
+              return (
+                <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+                  <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>3-Mo Avg (Jan–Mar '26)</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>${avg3mo.toFixed(0)}M<span style={{ fontSize: 11, color: C.textDim, fontWeight: 400 }}>/mo</span></div>
+                    <div style={{ fontSize: 10, color: C.textMuted }}>Annualized: <span style={{ color: C.accent, fontWeight: 700 }}>${(annualized / 1000).toFixed(1)}B</span></div>
+                  </div>
+                  <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.amber}44` }}>
+                    <div style={{ fontSize: 9, color: C.amber, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>FY27E Model Assumption</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>${(fy27Deposits / 1000).toFixed(1)}B<span style={{ fontSize: 11, color: C.textDim, fontWeight: 400 }}>/yr</span></div>
+                    <div style={{ fontSize: 10, color: fy27Deposits > annualized ? C.red : C.green }}>
+                      {fy27Deposits > annualized ? "Above" : "Below"} current run rate by ${Math.abs((fy27Deposits - annualized) / 1000).toFixed(1)}B
+                    </div>
+                  </div>
+                  <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>Deposit Composition (Mar '26)</div>
+                    <div style={{ fontSize: 12, color: C.text, marginTop: 4 }}>
+                      <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$244M</span> <span style={{ color: C.textMuted }}>CM</span>
+                      {" + "}
+                      <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$352M</span> <span style={{ color: C.textMuted }}>IA</span>
+                      {" = "}
+                      <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$596M</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>CM mix: 40.9% · IA mix: 59.1%</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           {/* DCF Waterfall */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>DCF Value Bridge</div>
@@ -1010,7 +1125,7 @@ export default function WealthfrontDCF() {
           </div>
 
           <div style={{ fontSize: 10, color: C.textDim, marginTop: 12, textAlign: "center" }}>
-            Model based on Wealthfront FY26 10-K actuals. All projections are estimates. Not financial advice. · Built with data from v7 model.
+            Model based on Wealthfront FY26 10-K actuals · Monthly metrics updated through March 2026 · All projections are estimates · Not financial advice
           </div>
         </div>
       </div>
