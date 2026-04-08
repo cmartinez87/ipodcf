@@ -742,6 +742,36 @@ export default function WealthfrontDCF() {
             <KPICard small title="Cash/Share" value={fmtDollar(model.fy30.cashPerShare)} subtitle="as of Jan 31, 2031" color={C.accent} />
           </div>
 
+          {/* Monthly Metrics Link + FY27E Deposit Assumption */}
+          {(() => {
+            const recent3Deps = [596, 271, -247]; // Mar, Feb, Jan '26 from MONTHLY data
+            const avg3mo = recent3Deps.reduce((s, v) => s + v, 0) / 3;
+            const annualized = avg3mo * 12;
+            const fy27Deposits = model.projYears.length > 0 ? model.projYears[0].totalNetDeposits : 0;
+            return (
+              <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                <a href="/wealthfront/monthly" style={{ flex: "1 1 280px", padding: "12px 16px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, textDecoration: "none", cursor: "pointer", transition: "border-color 0.2s" }}
+                  onMouseOver={e => e.currentTarget.style.borderColor = C.purple}
+                  onMouseOut={e => e.currentTarget.style.borderColor = C.border}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Metrics Tracker →</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>Platform assets, net deposits (CM/IA split), funded clients · Updated through Mar '26</div>
+                </a>
+                <div style={{ flex: "1 1 280px", padding: "12px 16px", background: C.card, borderRadius: 10, border: `1px solid ${C.amber}44` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <div style={{ fontSize: 9, color: C.amber, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>FY27E Net Deposits (Model)</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>${(fy27Deposits / 1000).toFixed(1)}B</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
+                    3-mo run rate: <span style={{ color: C.accent, fontWeight: 600 }}>${(annualized / 1000).toFixed(1)}B/yr</span>
+                    <span style={{ marginLeft: 8, color: fy27Deposits > annualized ? C.red : C.green }}>
+                      Model is {fy27Deposits > annualized ? "above" : "below"} by ${Math.abs((fy27Deposits - annualized) / 1000).toFixed(1)}B
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Valuation Multiples */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Valuation at Current Price</div>
@@ -901,36 +931,6 @@ export default function WealthfrontDCF() {
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Monthly Metrics Link + FY27E Deposit Assumption */}
-          {(() => {
-            const recent3Deps = [596, 271, -247]; // Mar, Feb, Jan '26 from MONTHLY data
-            const avg3mo = recent3Deps.reduce((s, v) => s + v, 0) / 3;
-            const annualized = avg3mo * 12;
-            const fy27Deposits = model.projYears.length > 0 ? model.projYears[0].totalNetDeposits : 0;
-            return (
-              <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                <a href="/wealthfront/monthly" style={{ flex: "1 1 280px", padding: "12px 16px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, textDecoration: "none", cursor: "pointer", transition: "border-color 0.2s" }}
-                  onMouseOver={e => e.currentTarget.style.borderColor = C.purple}
-                  onMouseOut={e => e.currentTarget.style.borderColor = C.border}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Metrics Tracker →</div>
-                  <div style={{ fontSize: 11, color: C.textMuted }}>Platform assets, net deposits (CM/IA split), funded clients · Updated through Mar '26</div>
-                </a>
-                <div style={{ flex: "1 1 280px", padding: "12px 16px", background: C.card, borderRadius: 10, border: `1px solid ${C.amber}44` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                    <div style={{ fontSize: 9, color: C.amber, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>FY27E Net Deposits (Model)</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>${(fy27Deposits / 1000).toFixed(1)}B</div>
-                  </div>
-                  <div style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
-                    3-mo run rate: <span style={{ color: C.accent, fontWeight: 600 }}>${(annualized / 1000).toFixed(1)}B/yr</span>
-                    <span style={{ marginLeft: 8, color: fy27Deposits > annualized ? C.red : C.green }}>
-                      Model is {fy27Deposits > annualized ? "above" : "below"} by ${Math.abs((fy27Deposits - annualized) / 1000).toFixed(1)}B
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
 
           {/* DCF Waterfall */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
