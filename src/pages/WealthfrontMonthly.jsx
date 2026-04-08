@@ -86,9 +86,19 @@ export default function WealthfrontMonthly() {
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
               <XAxis dataKey="month" tick={{ fontSize: 9, fill: C.textDim }} interval={1} />
               <YAxis tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => `$${(v / 1000).toFixed(0)}B`} domain={[0, 'auto']} />
-              <Tooltip contentStyle={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, color: C.text }}
-                formatter={(v, name) => [`$${(v / 1000).toFixed(1)}B`, name === "cm" ? "Cash Management" : "Investment Advisory"]}
-                labelFormatter={l => l} />
+              <Tooltip content={({ active, payload, label }) => {
+                if (!active || !payload || !payload.length) return null;
+                const d = MONTHLY.find(m => m.month === label);
+                if (!d) return null;
+                return (
+                  <div style={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px", fontSize: 11, color: C.text }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
+                    <div style={{ color: C.green, fontWeight: 700 }}>Total: ${(d.platform / 1000).toFixed(1)}B</div>
+                    <div style={{ color: C.accent, marginTop: 2 }}>CM: ${(d.cm / 1000).toFixed(1)}B</div>
+                    <div style={{ color: C.purpleLight }}>IA: ${(d.ia / 1000).toFixed(1)}B</div>
+                  </div>
+                );
+              }} />
               <Area dataKey="cm" stackId="1" fill={C.purpleDark} fillOpacity={0.7} stroke={C.purpleDark} strokeWidth={1.5} name="cm" />
               <Area dataKey="ia" stackId="1" fill={C.purpleLight} fillOpacity={0.5} stroke={C.purpleLight} strokeWidth={1.5} name="ia" />
             </ComposedChart>
@@ -98,37 +108,37 @@ export default function WealthfrontMonthly() {
         {/* Chart 2: Monthly Net Deposits — total bars + CM/IA split */}
         <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Net Deposits ($M) — CM vs IA Split</div>
-          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Total bar shown for all months · CM/IA split shown where reported (Mar '25, Feb '26, Mar '26)</div>
+          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Solid bar = total · Stacked CM/IA where reported (Mar '25, Feb '26, Mar '26)</div>
           <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={MONTHLY.slice(1)} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+            <ComposedChart data={MONTHLY.slice(1).map(m => m.cmDep !== null
+              ? { month: m.month, cmDep: m.cmDep, iaDep: m.iaDep, deposits: null }
+              : { month: m.month, cmDep: null, iaDep: null, deposits: m.deposits }
+            )} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
               <XAxis dataKey="month" tick={{ fontSize: 9, fill: C.textDim }} interval={1} />
               <YAxis tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => v.toLocaleString()} />
-              <Tooltip contentStyle={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, color: C.text }}
-                content={({ active, payload, label }) => {
-                  if (!active || !payload || !payload.length) return null;
-                  const d = MONTHLY.find(m => m.month === label);
-                  if (!d) return null;
-                  return (
-                    <div style={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px", fontSize: 11, color: C.text }}>
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
-                      <div style={{ color: d.deposits >= 0 ? C.green : C.red }}>Total: {fmtM(d.deposits)}</div>
-                      {d.cmDep !== null && (
-                        <>
-                          <div style={{ color: C.purpleDark, marginTop: 2 }}>CM: {fmtM(d.cmDep)}</div>
-                          <div style={{ color: C.purpleLight }}>IA: {fmtM(d.iaDep)}</div>
-                          <div style={{ color: C.textDim, marginTop: 2 }}>CM Mix: {((d.cmDep / d.deposits) * 100).toFixed(1)}%</div>
-                        </>
-                      )}
-                    </div>
-                  );
-                }} />
-              {/* Total deposits — semi-transparent so split bars show through */}
-              <Bar dataKey="deposits" name="Total Net Deposits" fill={C.lavender} fillOpacity={0.35} radius={[2, 2, 0, 0]} />
-              {/* CM split — only renders where cmDep is not null */}
-              <Bar dataKey="cmDep" name="CM Deposits" fill={C.purpleDark} fillOpacity={0.9} radius={[2, 2, 0, 0]} />
-              {/* IA split — only renders where iaDep is not null */}
-              <Bar dataKey="iaDep" name="IA Deposits" fill={C.purpleLight} fillOpacity={0.9} radius={[2, 2, 0, 0]} />
+              <Tooltip content={({ active, payload, label }) => {
+                if (!active || !payload || !payload.length) return null;
+                const d = MONTHLY.find(m => m.month === label);
+                if (!d) return null;
+                return (
+                  <div style={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px", fontSize: 11, color: C.text }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
+                    <div style={{ color: d.deposits >= 0 ? C.green : C.red, fontWeight: 700 }}>Total: {fmtM(d.deposits)}</div>
+                    {d.cmDep !== null && (
+                      <>
+                        <div style={{ color: C.accent, marginTop: 2 }}>CM: {fmtM(d.cmDep)}</div>
+                        <div style={{ color: C.purpleLight }}>IA: {fmtM(d.iaDep)}</div>
+                      </>
+                    )}
+                  </div>
+                );
+              }} />
+              {/* Total deposits bar — only for months without split data */}
+              <Bar dataKey="deposits" name="Total Net Deposits" fill={C.lavender} fillOpacity={0.7} radius={[2, 2, 0, 0]} />
+              {/* Stacked CM + IA for months with split data */}
+              <Bar dataKey="cmDep" name="CM Deposits" stackId="split" fill={C.purpleDark} fillOpacity={0.9} radius={[0, 0, 0, 0]} />
+              <Bar dataKey="iaDep" name="IA Deposits" stackId="split" fill={C.purpleLight} fillOpacity={0.9} radius={[2, 2, 0, 0]} />
               {/* Zero reference line */}
               <Line dataKey={() => 0} stroke={C.textDim} strokeWidth={1} dot={false} strokeDasharray="3 3" activeDot={false} legendType="none" />
             </ComposedChart>
