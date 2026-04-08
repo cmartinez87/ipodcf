@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import WealthfrontDCF from "./pages/WealthfrontDCF";
+import WealthfrontMonthly from "./pages/WealthfrontMonthly";
 
 const C = {
   bg: "#0C0816", card: "#16112A", cardHover: "#1E1735",
@@ -98,6 +99,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/wealthfront" element={<WealthfrontDCF />} />
+        <Route path="/wealthfront/monthly" element={<WealthfrontMonthly />} />
       </Routes>
     </BrowserRouter>
   );
