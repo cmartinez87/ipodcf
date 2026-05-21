@@ -98,6 +98,7 @@ function Slider({ label, value, onChange, min, max, step, format = "pct", suffix
     : format === "dollar" ? fmtDollar(value)
     : format === "$B" ? `$${value.toFixed(1)}B`
     : format === "year" ? `FY${value}`
+    : format === "x" ? `${value.toFixed(1)}x`
     : format === "number" ? `${prefix}${value.toFixed(step < 1 ? 1 : 0)}${suffix}`
     : `${value}`;
   const pct = ((value - min) / (max - min)) * 100;
@@ -216,29 +217,40 @@ const PARAM_MAP = {
   ar: "aiCAGR", ad: "aiCAGRDecay", abe: "aiBreakeven", atm: "aiTermMargin", acr: "aiCapexRatio",
   oc: "orbitalOn", ocy: "orbitalStartYear", occ: "orbitalFY36",
   es: "echostarOn",
+  // Anthropic deal (compute-as-a-service anchor tenant)
+  an: "anthropicOn", anm: "anthropicMonthly", any: "anthropicEndYear", anmg: "anthropicMargin",
+  // Terminal value methodology
+  tm: "termMethod", emc: "exitMultConn", ems: "exitMultSpace", ema: "exitMultAi",
 };
 
 // ─── Scenarios ───
+// Anthropic deal: $1.25B/mo through May 2029 = ~$15B/yr × ~3 years = ~$45B contracted (S-1 disclosure)
+// Terminal value default = Exit EV/EBITDA multiples (Gordon Growth structurally undervalues high-growth tech)
+//   Conn (mature subs): 12x  |  Space (defense/aerospace): 15x  |  AI (high-growth tech): 22x
 const SCENARIOS = {
   bull: {
     label: "Bull", stockPrice: 150, wacc: 0.10, termGrowth: 0.035, taxRate: 0.21, sbcRatio: 0.08, ipoShares: 333,
     starlinkNetAdds: 8, netAddsDecay: 0.10, arpuFloor: 60, arpuDecay: 0.06,
     entGovtGrowth: 0.40, connTermMargin: 0.65, connCapexRatio: 0.20,
     launchServGrowth: 0.05, launchDevGrowth: 0.20, spaceTermMargin: 0.40, spaceCapexRatio: 0.15,
-    starshipOn: true, starshipStartYear: 2027, starshipFY32: 6.0,
+    starshipOn: true, starshipStartYear: 2027, starshipFY32: 8.0,
     aiCAGR: 0.55, aiCAGRDecay: 0.06, aiBreakeven: 2028, aiTermMargin: 0.40, aiCapexRatio: 0.15,
-    orbitalOn: true, orbitalStartYear: 2029, orbitalFY36: 8.0,
+    orbitalOn: true, orbitalStartYear: 2029, orbitalFY36: 12.0,
     echostarOn: true,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.30,
+    termMethod: "exit", exitMultConn: 14, exitMultSpace: 18, exitMultAi: 28,
   },
   base: {
     label: "Base", stockPrice: 150, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
     starlinkNetAdds: 6, netAddsDecay: 0.15, arpuFloor: 55, arpuDecay: 0.10,
     entGovtGrowth: 0.30, connTermMargin: 0.60, connCapexRatio: 0.22,
     launchServGrowth: 0.00, launchDevGrowth: 0.15, spaceTermMargin: 0.32, spaceCapexRatio: 0.20,
-    starshipOn: true, starshipStartYear: 2028, starshipFY32: 4.0,
+    starshipOn: true, starshipStartYear: 2028, starshipFY32: 6.0,
     aiCAGR: 0.40, aiCAGRDecay: 0.07, aiBreakeven: 2030, aiTermMargin: 0.30, aiCapexRatio: 0.18,
-    orbitalOn: false, orbitalStartYear: 2030, orbitalFY36: 5.0,
+    orbitalOn: true, orbitalStartYear: 2030, orbitalFY36: 6.0,
     echostarOn: true,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.25,
+    termMethod: "exit", exitMultConn: 12, exitMultSpace: 15, exitMultAi: 22,
   },
   bear: {
     label: "Bear", stockPrice: 150, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 333,
@@ -249,6 +261,8 @@ const SCENARIOS = {
     aiCAGR: 0.25, aiCAGRDecay: 0.08, aiBreakeven: 2032, aiTermMargin: 0.18, aiCapexRatio: 0.25,
     orbitalOn: false, orbitalStartYear: 2031, orbitalFY36: 3.0,
     echostarOn: true,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.18,
+    termMethod: "gordon", exitMultConn: 9, exitMultSpace: 11, exitMultAi: 15,
   },
   statusQuo: {
     label: "Status Quo", stockPrice: 150, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
@@ -259,6 +273,8 @@ const SCENARIOS = {
     aiCAGR: 0.30, aiCAGRDecay: 0.07, aiBreakeven: 2031, aiTermMargin: 0.25, aiCapexRatio: 0.22,
     orbitalOn: false, orbitalStartYear: 2030, orbitalFY36: 5.0,
     echostarOn: true,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.22,
+    termMethod: "exit", exitMultConn: 10, exitMultSpace: 12, exitMultAi: 18,
   },
 };
 
@@ -303,6 +319,23 @@ export default function SpaceXDCF() {
   // EchoStar
   const [echostarOn, setEchostarOn] = useState(() => getHashParam("es", true));
 
+  // Anthropic deal — locked compute-as-a-service contract
+  const [anthropicOn, setAnthropicOn] = useState(() => getHashParam("an", true));
+  const [anthropicMonthly, setAnthropicMonthly] = useState(() => getHashParam("anm", 1.25));
+  const [anthropicEndYear, setAnthropicEndYear] = useState(() => getHashParam("any", 2032));
+  const [anthropicMargin, setAnthropicMargin] = useState(() => getHashParam("anmg", 0.25));
+
+  // Terminal value methodology
+  const [termMethod, setTermMethod] = useState(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return "exit";
+    const params = new URLSearchParams(hash);
+    return params.get("tm") || "exit";
+  });
+  const [exitMultConn, setExitMultConn] = useState(() => getHashParam("emc", 12));
+  const [exitMultSpace, setExitMultSpace] = useState(() => getHashParam("ems", 15));
+  const [exitMultAi, setExitMultAi] = useState(() => getHashParam("ema", 22));
+
   // UI state
   const [showSecondary, setShowSecondary] = useState(false);
   const [activeScenario, setActiveScenario] = useState(null);
@@ -323,6 +356,10 @@ export default function SpaceXDCF() {
     setAiTermMargin(s.aiTermMargin); setAiCapexRatio(s.aiCapexRatio);
     setOrbitalOn(s.orbitalOn); setOrbitalStartYear(s.orbitalStartYear); setOrbitalFY36(s.orbitalFY36);
     setEchostarOn(s.echostarOn);
+    setAnthropicOn(s.anthropicOn); setAnthropicMonthly(s.anthropicMonthly);
+    setAnthropicEndYear(s.anthropicEndYear); setAnthropicMargin(s.anthropicMargin);
+    setTermMethod(s.termMethod); setExitMultConn(s.exitMultConn);
+    setExitMultSpace(s.exitMultSpace); setExitMultAi(s.exitMultAi);
   };
 
   const handleShare = () => {
@@ -334,6 +371,8 @@ export default function SpaceXDCF() {
       ss: starshipOn, ssy: starshipStartYear, ssc: starshipFY32,
       ar: aiCAGR, ad: aiCAGRDecay, abe: aiBreakeven, atm: aiTermMargin, acr: aiCapexRatio,
       oc: orbitalOn, ocy: orbitalStartYear, occ: orbitalFY36, es: echostarOn,
+      an: anthropicOn, anm: anthropicMonthly, any: anthropicEndYear, anmg: anthropicMargin,
+      tm: termMethod, emc: exitMultConn, ems: exitMultSpace, ema: exitMultAi,
     };
     const params = new URLSearchParams(p);
     const url = `${window.location.origin}${window.location.pathname}#${params}`;
@@ -418,8 +457,18 @@ export default function SpaceXDCF() {
       const connCapex = connRev * connCxRatio;
 
       // ── AI ──
+      // Baseline AI (Grok subs + X advertising + data licensing + small API)
       const yearCAGR = Math.max(aiCAGR - i * aiCAGRDecay, 0.05);
       const aiBaseline = aiBaselinePrev * (1 + yearCAGR);
+
+      // Anthropic deal — locked compute-as-a-service revenue line ($1.25B/mo through 2029 per S-1)
+      // FY26 assumed full year (deal already active per filing)
+      let anthropicRev = 0;
+      if (anthropicOn && fy <= anthropicEndYear) {
+        anthropicRev = anthropicMonthly * 12 * 1000; // $M
+      }
+
+      // Orbital AI compute (toggleable optionality)
       let orbitalRev = 0;
       if (orbitalOn && fy >= orbitalStartYear) {
         const yearsIn = fy - orbitalStartYear;
@@ -430,23 +479,35 @@ export default function SpaceXDCF() {
           orbitalRev = orbitalFY36 * 1000 * Math.pow(1.25, yearsIn - rampYears);
         }
       }
-      const aiRev = aiBaseline + orbitalRev;
-      // AI margin curve: -39% FY25 → 0 at breakeven year → terminal
+      const aiRev = aiBaseline + anthropicRev + orbitalRev;
+
+      // Margin curve for the BASELINE AI business: -39% FY25 → 0 at breakeven → terminal
       const aiMarginStart = FY25.aiAdjEbitda / FY25.aiRev; // -39%
-      let aiMargin;
+      let aiBaselineMargin;
       if (fy <= aiBreakeven) {
         const phaseT = (fy - 2025) / Math.max(1, aiBreakeven - 2025);
-        aiMargin = aiMarginStart + (0 - aiMarginStart) * phaseT;
+        aiBaselineMargin = aiMarginStart + (0 - aiMarginStart) * phaseT;
       } else {
         const phaseT = Math.min(1, (fy - aiBreakeven) / Math.max(1, 2035 - aiBreakeven));
-        aiMargin = 0 + (aiTermMargin - 0) * phaseT;
+        aiBaselineMargin = 0 + (aiTermMargin - 0) * phaseT;
       }
-      const aiAdjEbitda = aiRev * aiMargin;
-      // AI capex: massive FY25 (~398% of revenue) decays geometrically toward terminal
-      // Decay factor 0.55 reflects aggressive normalization as monetization scales (hyperscaler peers reach maturity in 3–4 yrs)
-      const aiCxStart = FY25.aiCapex / FY25.aiRev;
+      // Anthropic margin = compute-as-a-service economics (lower than software, structurally positive)
+      // Orbital AI assumed to hit terminal margin once commercialized (higher-quality compute)
+      const aiAdjEbitda = aiBaseline * aiBaselineMargin
+        + anthropicRev * anthropicMargin
+        + orbitalRev * aiTermMargin;
+      const aiMargin = aiRev > 0 ? aiAdjEbitda / aiRev : 0;
+
+      // AI capex: driven by gigawatt build-out plan (absolute dollars), not revenue-following.
+      // Anthropic + Orbital revenue are the MONETIZATION of that buildout — capex is the same whether
+      // they exist or not. Modeled as: ratio applied to the BASELINE (non-locked-contract) AI revenue,
+      // plus a small incremental capex per dollar of compute-services revenue to capture growth.
+      const aiCxStart = FY25.aiCapex / FY25.aiRev; // 3.98x
       const aiCxRatio = aiCxStart * Math.pow(0.55, i) + aiCapexRatio * (1 - Math.pow(0.55, i));
-      const aiCapex = aiRev * aiCxRatio;
+      const baselineCapex = aiBaseline * aiCxRatio;
+      // Compute-services capex burden — incremental capacity to serve new contracts (~30c per $)
+      const computeServiceCapex = (anthropicRev + orbitalRev) * 0.30;
+      const aiCapex = baselineCapex + computeServiceCapex;
 
       // ── Consolidated ──
       const totalRev = spaceRev + connRev + aiRev;
@@ -485,8 +546,8 @@ export default function SpaceXDCF() {
         // Connectivity
         starlinkSubs: newSubs, starlinkArpu: newArpu, connConsumer, connEntGovt, connRev,
         connMargin, connAdjEbitda, connCapex, connUFCF,
-        // AI
-        aiBaseline, orbitalRev, aiRev, aiMargin, aiAdjEbitda, aiCapex, aiUFCF,
+        // AI (now includes Anthropic contract revenue)
+        aiBaseline, anthropicRev, orbitalRev, aiRev, aiMargin, aiAdjEbitda, aiCapex, aiUFCF,
         // Total
         totalRev, totalAdjEbitda, totalCapex, totalUFCF, yoyRev,
         sbc, interestExp, interestInc, echostarOut, cash, debt,
@@ -502,10 +563,20 @@ export default function SpaceXDCF() {
 
     // ── SOTP DCF ──
     const lastYr = projYears[years - 1];
-    // Per-segment terminal value (Gordon Growth on terminal UFCF)
-    const spaceTerm = (lastYr.spaceUFCF * (1 + termGrowth)) / (wacc - termGrowth);
-    const connTerm = (lastYr.connUFCF * (1 + termGrowth)) / (wacc - termGrowth);
-    const aiTerm = (lastYr.aiUFCF * (1 + termGrowth)) / (wacc - termGrowth);
+
+    // Per-segment terminal value — either Gordon Growth on UFCF OR Exit EV/EBITDA
+    let spaceTerm, connTerm, aiTerm;
+    if (termMethod === "exit") {
+      // Apply segment-specific exit multiples to terminal Adj EBITDA
+      spaceTerm = Math.max(0, lastYr.spaceAdjEbitda) * exitMultSpace;
+      connTerm = Math.max(0, lastYr.connAdjEbitda) * exitMultConn;
+      aiTerm = Math.max(0, lastYr.aiAdjEbitda) * exitMultAi;
+    } else {
+      // Gordon Growth on terminal UFCF
+      spaceTerm = lastYr.spaceUFCF > 0 ? (lastYr.spaceUFCF * (1 + termGrowth)) / (wacc - termGrowth) : 0;
+      connTerm = lastYr.connUFCF > 0 ? (lastYr.connUFCF * (1 + termGrowth)) / (wacc - termGrowth) : 0;
+      aiTerm = lastYr.aiUFCF > 0 ? (lastYr.aiUFCF * (1 + termGrowth)) / (wacc - termGrowth) : 0;
+    }
 
     // PV of UFCF streams
     const pvSpace = projYears.reduce((sum, y, i) => sum + y.spaceUFCF / Math.pow(1 + wacc, i + 1), 0);
@@ -569,7 +640,9 @@ export default function SpaceXDCF() {
       starlinkNetAdds, netAddsDecay, arpuFloor, arpuDecay, entGovtGrowth, connTermMargin, connCapexRatio,
       launchServGrowth, launchDevGrowth, spaceTermMargin, spaceCapexRatio, starshipOn, starshipStartYear, starshipFY32,
       aiCAGR, aiCAGRDecay, aiBreakeven, aiTermMargin, aiCapexRatio, orbitalOn, orbitalStartYear, orbitalFY36,
-      echostarOn]);
+      echostarOn,
+      anthropicOn, anthropicMonthly, anthropicEndYear, anthropicMargin,
+      termMethod, exitMultConn, exitMultSpace, exitMultAi]);
 
   // ─── Chart data ───
   const chartData = useMemo(() => {
@@ -652,7 +725,36 @@ export default function SpaceXDCF() {
       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
       <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>Valuation</div>
       <Slider label="WACC" value={wacc} onChange={setWacc} min={0.07} max={0.18} step={0.005} format="pct" tooltip="Weighted-average cost of capital used to discount each segment's UFCF. Single rate across segments (SOTP comes from segment-specific terminal margins + capex tracks)." />
-      <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.015} max={0.045} step={0.0025} format="pct" tooltip="Perpetual growth rate in the Gordon Growth terminal value calc. Should not exceed long-run nominal GDP (~3–4%)." />
+
+      {/* Terminal method toggle */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>
+          Terminal Value Method<InfoTooltip text="Exit Multiple applies segment-specific EV/EBITDA to terminal year EBITDA (better for high-growth tech). Gordon Growth uses UFCF × (1+g)/(WACC-g) — tends to understate value when terminal year hasn't reached steady-state margins." />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          <button onClick={() => setTermMethod("exit")}
+            style={{ padding: "6px 4px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
+              background: termMethod === "exit" ? C.blueDark : C.cardAlt,
+              border: `1px solid ${termMethod === "exit" ? C.blue : C.border}`,
+              color: termMethod === "exit" ? C.blueLight : C.textMuted }}>Exit Multiple</button>
+          <button onClick={() => setTermMethod("gordon")}
+            style={{ padding: "6px 4px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700,
+              background: termMethod === "gordon" ? C.blueDark : C.cardAlt,
+              border: `1px solid ${termMethod === "gordon" ? C.blue : C.border}`,
+              color: termMethod === "gordon" ? C.blueLight : C.textMuted }}>Gordon Growth</button>
+        </div>
+      </div>
+
+      {termMethod === "gordon" && (
+        <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.015} max={0.045} step={0.0025} format="pct" tooltip="Perpetual growth rate in the Gordon Growth terminal value calc. Should not exceed long-run nominal GDP (~3–4%)." />
+      )}
+      {termMethod === "exit" && (
+        <>
+          <Slider label="Conn Exit EV/EBITDA" value={exitMultConn} onChange={setExitMultConn} min={5} max={25} step={0.5} format="x" tooltip="Connectivity exit multiple — mature subscription comms peers (cable/wireless) trade 7–12x; high-growth wireless 12–18x. Applied to FY35 Conn Adj EBITDA." />
+          <Slider label="Space Exit EV/EBITDA" value={exitMultSpace} onChange={setExitMultSpace} min={5} max={30} step={0.5} format="x" tooltip="Space exit multiple — defense/aerospace peers trade 10–15x; high-growth specialty 15–22x. Applied to FY35 Space Adj EBITDA." />
+          <Slider label="AI Exit EV/EBITDA" value={exitMultAi} onChange={setExitMultAi} min={8} max={40} step={1} format="x" tooltip="AI exit multiple — high-growth frontier-model/compute peers trade 18–35x. Applied to FY35 AI Adj EBITDA. The biggest terminal-value lever in the model." />
+        </>
+      )}
 
       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
       <div style={{ fontSize: 11, color: C.connColor, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>Connectivity (Starlink)</div>
@@ -688,7 +790,15 @@ export default function SpaceXDCF() {
 
           <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
           <div style={{ fontSize: 11, color: C.aiColor, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>AI (xAI + X + Compute)</div>
-          <Slider label="AI Baseline CAGR Y1" value={aiCAGR} onChange={setAiCAGR} min={0.05} max={0.80} step={0.01} format="pct" tooltip="AI segment revenue growth in FY26. FY25 grew 22% (xAI ramping + X ad recovery). Decelerates by 'decay' per year." />
+          <Toggle label="Anthropic Contract" value={anthropicOn} onChange={setAnthropicOn} tooltip="S-1 discloses Anthropic compute-as-a-service contract at $1.25B/month through May 2029 (~$15B/yr, ~$45B total). 90-day terminable. Modeled as a separate AI revenue line with its own margin." />
+          {anthropicOn && (
+            <>
+              <Slider label="Anthropic Monthly Rev" value={anthropicMonthly} onChange={setAnthropicMonthly} min={0.25} max={3.0} step={0.05} format="$B" tooltip="Monthly compute revenue from Anthropic contract. S-1 baseline is $1.25B/mo. Slider lets you stress-test partial-quarter or follow-on contract scenarios." />
+              <Slider label="Compute Services End Year" value={anthropicEndYear} onChange={setAnthropicEndYear} min={2027} max={2034} step={1} format="year" tooltip="Last year of compute-services revenue at this run rate. S-1 discloses the Anthropic contract through May 2029, but real-world: SpaceX is building gigawatt capacity; if Anthropic doesn't renew, the capacity gets re-sold. Base default 2032 assumes renewal or capacity backfill. Set to 2029 to model the S-1 disclosure cliff." />
+              <Slider label="Anthropic Margin" value={anthropicMargin} onChange={setAnthropicMargin} min={0.05} max={0.45} step={0.01} format="pct" tooltip="Adj EBITDA margin on Anthropic revenue. Compute-as-a-service economics — between hyperscaler infra (~30%) and pure pass-through (~10%). Default 25%." />
+            </>
+          )}
+          <Slider label="AI Baseline CAGR Y1" value={aiCAGR} onChange={setAiCAGR} min={0.05} max={0.80} step={0.01} format="pct" tooltip="Growth rate for the BASELINE AI business (Grok subs + X advertising + data licensing), excluding the Anthropic contract and orbital compute lines. FY25 grew 22%. Decelerates by 'decay' per year." />
           <Slider label="AI CAGR Decay /yr" value={aiCAGRDecay} onChange={setAiCAGRDecay} min={0.02} max={0.15} step={0.01} format="pct" tooltip="Yearly deceleration applied to AI growth rate." />
           <Slider label="AI Breakeven Year" value={aiBreakeven} onChange={setAiBreakeven} min={2027} max={2034} step={1} format="year" tooltip="First year AI Adj EBITDA reaches zero. FY25 was -39% margin ($1.2B loss). Margin interpolates linearly from FY25 to breakeven, then from breakeven to terminal." />
           <Slider label="AI Terminal Margin" value={aiTermMargin} onChange={setAiTermMargin} min={0.05} max={0.50} step={0.01} format="pct" tooltip="Long-run AI segment Adj EBITDA margin. Reached by FY35. Frontier model + ads + compute services blend." />
