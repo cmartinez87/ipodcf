@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import WealthfrontDCF from "./pages/WealthfrontDCF";
 import WealthfrontMonthly from "./pages/WealthfrontMonthly";
+import SpaceXDCF from "./pages/SpaceXDCF";
 
 const C = {
   bg: "#0C0816", card: "#16112A", cardHover: "#1E1735",
@@ -19,8 +20,13 @@ const companies = [
     description: "10-Year DCF · Gordon Growth · Interactive",
     color: C.purple,
   },
-  // Future: add more companies here
-  // { ticker: "SOFI", name: "SoFi Technologies", path: "/sofi", description: "Coming soon", color: "#5B21B6" },
+  {
+    ticker: "SPACEX",
+    name: "SpaceX",
+    path: "/spacex",
+    description: "DCF Model · Coming Soon",
+    color: "#005288",
+  },
 ];
 
 function CompanyCard({ ticker, name, description, path, color }) {
@@ -100,6 +106,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/wealthfront" element={<WealthfrontDCF />} />
         <Route path="/wealthfront/monthly" element={<WealthfrontMonthly />} />
+        <Route path="/spacex" element={<SpaceXDCF />} />
       </Routes>
     </BrowserRouter>
   );
