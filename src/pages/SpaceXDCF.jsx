@@ -229,6 +229,8 @@ const PARAM_MAP = {
   xag: "xAdGrowth", asg: "aiSubsGrowth", dlg: "dataLicGrowth",
   // Connectivity Starshield (Tier 2)
   shg: "starshieldGrowth",
+  // AI buildout peak capex (Tier 2.1 — fixes Anthropic capex attribution bug)
+  acy: "aiCapexFY26",
 };
 
 // ─── Scenarios ───
@@ -245,9 +247,10 @@ const SCENARIOS = {
     aiCAGR: 0.55, aiCAGRDecay: 0.06, aiBreakeven: 2028, aiTermMargin: 0.40, aiCapexRatio: 0.15,
     orbitalOn: true, orbitalStartYear: 2029, orbitalFY36: 12.0,
     echostarOn: true,
-    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.30,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.55,
     termMethod: "exit", exitMultConn: 14, exitMultSpace: 18, exitMultAi: 28,
     xAdGrowth: 0.18, aiSubsGrowth: 0.75, dataLicGrowth: 0.45, starshieldGrowth: 0.40,
+    aiCapexFY26: 32,
   },
   base: {
     label: "Base", stockPrice: 150, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
@@ -258,9 +261,10 @@ const SCENARIOS = {
     aiCAGR: 0.40, aiCAGRDecay: 0.07, aiBreakeven: 2030, aiTermMargin: 0.30, aiCapexRatio: 0.18,
     orbitalOn: true, orbitalStartYear: 2030, orbitalFY36: 6.0,
     echostarOn: true,
-    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.25,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.45,
     termMethod: "exit", exitMultConn: 12, exitMultSpace: 15, exitMultAi: 22,
     xAdGrowth: 0.10, aiSubsGrowth: 0.50, dataLicGrowth: 0.30, starshieldGrowth: 0.30,
+    aiCapexFY26: 28,
   },
   bear: {
     label: "Bear", stockPrice: 150, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 333,
@@ -271,9 +275,10 @@ const SCENARIOS = {
     aiCAGR: 0.25, aiCAGRDecay: 0.08, aiBreakeven: 2032, aiTermMargin: 0.18, aiCapexRatio: 0.25,
     orbitalOn: false, orbitalStartYear: 2031, orbitalFY36: 3.0,
     echostarOn: true,
-    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.18,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.30,
     termMethod: "gordon", exitMultConn: 9, exitMultSpace: 11, exitMultAi: 15,
     xAdGrowth: 0.02, aiSubsGrowth: 0.25, dataLicGrowth: 0.15, starshieldGrowth: 0.15,
+    aiCapexFY26: 28,
   },
   statusQuo: {
     label: "Status Quo", stockPrice: 150, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
@@ -284,9 +289,10 @@ const SCENARIOS = {
     aiCAGR: 0.30, aiCAGRDecay: 0.07, aiBreakeven: 2031, aiTermMargin: 0.25, aiCapexRatio: 0.22,
     orbitalOn: false, orbitalStartYear: 2030, orbitalFY36: 5.0,
     echostarOn: true,
-    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.22,
+    anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.40,
     termMethod: "exit", exitMultConn: 10, exitMultSpace: 12, exitMultAi: 18,
     xAdGrowth: 0.08, aiSubsGrowth: 0.35, dataLicGrowth: 0.20, starshieldGrowth: 0.22,
+    aiCapexFY26: 25,
   },
 };
 
@@ -335,7 +341,7 @@ export default function SpaceXDCF() {
   const [anthropicOn, setAnthropicOn] = useState(() => getHashParam("an", true));
   const [anthropicMonthly, setAnthropicMonthly] = useState(() => getHashParam("anm", 1.25));
   const [anthropicEndYear, setAnthropicEndYear] = useState(() => getHashParam("any", 2032));
-  const [anthropicMargin, setAnthropicMargin] = useState(() => getHashParam("anmg", 0.25));
+  const [anthropicMargin, setAnthropicMargin] = useState(() => getHashParam("anmg", 0.45));
 
   // Terminal value methodology
   const [termMethod, setTermMethod] = useState(() => {
@@ -355,6 +361,9 @@ export default function SpaceXDCF() {
 
   // Connectivity Starshield growth (govt connectivity sub-line)
   const [starshieldGrowth, setStarshieldGrowth] = useState(() => getHashParam("shg", 0.30));
+
+  // AI buildout peak — absolute-dollar capex anchor for FY26
+  const [aiCapexFY26, setAiCapexFY26] = useState(() => getHashParam("acy", 30));
 
   // UI state
   const [showSecondary, setShowSecondary] = useState(false);
@@ -382,6 +391,7 @@ export default function SpaceXDCF() {
     setExitMultSpace(s.exitMultSpace); setExitMultAi(s.exitMultAi);
     setXAdGrowth(s.xAdGrowth); setAiSubsGrowth(s.aiSubsGrowth);
     setDataLicGrowth(s.dataLicGrowth); setStarshieldGrowth(s.starshieldGrowth);
+    setAiCapexFY26(s.aiCapexFY26);
   };
 
   const handleShare = () => {
@@ -396,6 +406,7 @@ export default function SpaceXDCF() {
       an: anthropicOn, anm: anthropicMonthly, any: anthropicEndYear, anmg: anthropicMargin,
       tm: termMethod, emc: exitMultConn, ems: exitMultSpace, ema: exitMultAi,
       xag: xAdGrowth, asg: aiSubsGrowth, dlg: dataLicGrowth, shg: starshieldGrowth,
+      acy: aiCapexFY26,
     };
     const params = new URLSearchParams(p);
     const url = `${window.location.origin}${window.location.pathname}#${params}`;
@@ -535,16 +546,17 @@ export default function SpaceXDCF() {
         + orbitalRev * aiTermMargin;
       const aiMargin = aiRev > 0 ? aiAdjEbitda / aiRev : 0;
 
-      // AI capex: driven by gigawatt build-out plan (absolute dollars), not revenue-following.
-      // Anthropic + Orbital revenue are the MONETIZATION of that buildout — capex is the same whether
-      // they exist or not. Modeled as: ratio applied to the BASELINE (non-locked-contract) AI revenue,
-      // plus a small incremental capex per dollar of compute-services revenue to capture growth.
-      const aiCxStart = FY25.aiCapex / FY25.aiRev; // 3.98x
-      const aiCxRatio = aiCxStart * Math.pow(0.55, i) + aiCapexRatio * (1 - Math.pow(0.55, i));
-      const baselineCapex = aiBaseline * aiCxRatio;
-      // Compute-services capex burden — incremental capacity to serve new contracts (~30c per $)
-      const computeServiceCapex = (anthropicRev + orbitalRev) * 0.30;
-      const aiCapex = baselineCapex + computeServiceCapex;
+      // AI capex: declining absolute-dollar buildout schedule (gigawatt deployment plan),
+      // floored by revenue-following terminal maintenance capex once buildout completes.
+      // Rationale: SpaceX built ~1 GW of capacity in FY24–25 BEFORE Anthropic was material.
+      // Anthropic + Orbital revenue monetize capacity that already exists. Total AI capex is
+      // driven by the buildout plan, not the revenue base. Buildout peaks in FY26 then decays.
+      // Smooth blend to terminal ratio: 100% schedule in Y1 → 0% schedule by Y8.
+      const aiCapexY1 = aiCapexFY26 * 1000;           // $30B default — slider
+      const aiCapexAbs = aiCapexY1 * Math.pow(0.78, i); // 22% annual decay
+      const aiCapexFloor = aiRev * aiCapexRatio;        // terminal maintenance level
+      const blend = Math.min(1, i / 8);                 // glide buildout→ratio over 8 years
+      const aiCapex = aiCapexAbs * (1 - blend) + Math.max(aiCapexFloor, aiCapexAbs) * blend;
 
       // ── Consolidated ──
       const totalRev = spaceRev + connRev + aiRev;
@@ -684,7 +696,7 @@ export default function SpaceXDCF() {
       echostarOn,
       anthropicOn, anthropicMonthly, anthropicEndYear, anthropicMargin,
       termMethod, exitMultConn, exitMultSpace, exitMultAi,
-      xAdGrowth, aiSubsGrowth, dataLicGrowth, starshieldGrowth]);
+      xAdGrowth, aiSubsGrowth, dataLicGrowth, starshieldGrowth, aiCapexFY26]);
 
   // ─── Chart data ───
   const chartData = useMemo(() => {
@@ -839,7 +851,7 @@ export default function SpaceXDCF() {
             <>
               <Slider label="Anthropic Monthly Rev" value={anthropicMonthly} onChange={setAnthropicMonthly} min={0.25} max={3.0} step={0.05} format="$B" tooltip="Monthly compute revenue from Anthropic contract. S-1 baseline is $1.25B/mo. Slider lets you stress-test partial-quarter or follow-on contract scenarios." />
               <Slider label="Compute Services End Year" value={anthropicEndYear} onChange={setAnthropicEndYear} min={2027} max={2034} step={1} format="year" tooltip="Last year of compute-services revenue at this run rate. S-1 discloses the Anthropic contract through May 2029, but real-world: SpaceX is building gigawatt capacity; if Anthropic doesn't renew, the capacity gets re-sold. Base default 2032 assumes renewal or capacity backfill. Set to 2029 to model the S-1 disclosure cliff." />
-              <Slider label="Anthropic Margin" value={anthropicMargin} onChange={setAnthropicMargin} min={0.05} max={0.45} step={0.01} format="pct" tooltip="Adj EBITDA margin on Anthropic revenue. Compute-as-a-service economics — between hyperscaler infra (~30%) and pure pass-through (~10%). Default 25%." />
+              <Slider label="Anthropic Margin" value={anthropicMargin} onChange={setAnthropicMargin} min={0.10} max={0.70} step={0.01} format="pct" tooltip="Adj EBITDA margin on Anthropic compute revenue. Adj EBITDA adds back D&A — so this is just direct operating cost (utilities, cooling, network, on-site engineers ≈ 30–50% of revenue). AWS gross margin is ~70%; hyperscaler operating margin ~30%. For a single negotiated mega-customer with minimal S&M attribution, Adj EBITDA margin runs 40–55%. Default 45%." />
             </>
           )}
           <div style={{ fontSize: 10, color: C.textDim, marginBottom: 8, fontStyle: "italic" }}>AI baseline = X Ads + AI Subs + Data Licensing (per S-1 disaggregation)</div>
@@ -848,7 +860,8 @@ export default function SpaceXDCF() {
           <Slider label="Data Licensing / API Growth Y1" value={dataLicGrowth} onChange={setDataLicGrowth} min={0.10} max={0.80} step={0.05} format="pct" tooltip="Data licensing arrangements + Grok API revenue growth. High-margin enterprise/dev revenue. Grew $88M in FY25. FY25 baseline share ~16% ($0.5B). Highest structural margin of any AI sub-line." />
           <Slider label="AI Breakeven Year (blended)" value={aiBreakeven} onChange={setAiBreakeven} min={2027} max={2034} step={1} format="year" tooltip="First year blended baseline AI Adj EBITDA reaches zero. FY25 was -39% margin ($1.2B loss, driven mostly by compute infra burn now attributed to Compute Services capex). Margin interpolates linearly from FY25 to breakeven, then from breakeven to terminal." />
           <Slider label="AI Terminal Margin" value={aiTermMargin} onChange={setAiTermMargin} min={0.05} max={0.50} step={0.01} format="pct" tooltip="Long-run AI segment Adj EBITDA margin. Reached by FY35. Frontier model + ads + compute services blend." />
-          <Slider label="AI CapEx/Sales (term)" value={aiCapexRatio} onChange={setAiCapexRatio} min={0.08} max={0.50} step={0.01} format="pct" tooltip="Steady-state AI capex/sales. FY25 was 398% during gigawatt buildout. Mature hyperscaler peers run 15–25% (Meta, Google, Microsoft). Decays geometrically from FY25 toward this terminal." />
+          <Slider label="FY26 AI CapEx ($B)" value={aiCapexFY26} onChange={setAiCapexFY26} min={10} max={60} step={1} format="$B" tooltip="Peak AI capex in FY26 — anchor of the absolute-dollar buildout schedule. Q1'26 actual was $7.7B annualized = $30.8B. Capex declines 22% per year from this anchor, blended toward terminal ratio over ~8 years. Decouples capex from Anthropic-style revenue jumps." />
+          <Slider label="AI CapEx/Sales (terminal)" value={aiCapexRatio} onChange={setAiCapexRatio} min={0.08} max={0.50} step={0.01} format="pct" tooltip="Steady-state AI capex/sales (used as the floor after buildout completes ~FY33+). Mature hyperscaler peers run 15–25% (Meta, Google, Microsoft)." />
           <Toggle label="Orbital AI Compute" value={orbitalOn} onChange={setOrbitalOn} tooltip="Model orbital AI compute as a separate revenue line. Highly speculative — S-1 says 100GW/yr aspirational target. Off by default in base case." />
           {orbitalOn && (
             <>
