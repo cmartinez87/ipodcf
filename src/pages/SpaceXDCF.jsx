@@ -25,16 +25,20 @@ const HIST = {
 // FY25 baseline values used for projection start
 const FY25 = {
   totalRev: 18674,
-  // Space
-  spaceRev: 4086, launchServicesShare: 0.63, launchDevShare: 0.37,
+  // Space — Launch & Development is mostly government (NASA CRS + DoW long-term contracts)
+  spaceRev: 4086, launchServicesShare: 0.63, govtContractsShare: 0.37,
   spaceAdjEbitda: 653, spaceCapex: 3832,
-  // Connectivity
+  // Connectivity — Enterprise + Govt split: Enterprise ~72%, Starshield (govt) ~28%
+  // (Per Q1'26 MD&A, govt connectivity declined while aviation/maritime grew)
   connRev: 11387, connConsumerShare: 0.62, connEntGovtShare: 0.38,
+  connEnterpriseShare: 0.72, connStarshieldShare: 0.28,
   connAdjEbitda: 7168, connCapex: 4178,
   starlinkSubs: 8500, // approx EOP'25 — interpolated between Q1'25 (5.0M) and Q1'26 (10.3M)
   starlinkArpu: 81, // FY25 monthly
-  // AI
+  // AI baseline — split into X Advertising (legacy Twitter mon), AI Subscriptions (Grok/X Premium/SuperGrok), Data Licensing/API
+  // FY25 mix estimated: $1.8B ads / $0.9B subs / $0.5B data lic ≈ 56/28/16 of $3.2B baseline
   aiRev: 3201, aiAdjEbitda: -1237, aiCapex: 12727,
+  aiXAdShare: 0.56, aiSubsShare: 0.28, aiDataLicShare: 0.16,
   // Corporate
   cash: 23675, // Q1'26 cash + marketables ($15.85B + $7.82B)
   debt: 30265, // Q1'26 total debt
@@ -221,6 +225,10 @@ const PARAM_MAP = {
   an: "anthropicOn", anm: "anthropicMonthly", any: "anthropicEndYear", anmg: "anthropicMargin",
   // Terminal value methodology
   tm: "termMethod", emc: "exitMultConn", ems: "exitMultSpace", ema: "exitMultAi",
+  // AI baseline sub-line growth rates (Tier 2)
+  xag: "xAdGrowth", asg: "aiSubsGrowth", dlg: "dataLicGrowth",
+  // Connectivity Starshield (Tier 2)
+  shg: "starshieldGrowth",
 };
 
 // ─── Scenarios ───
@@ -239,6 +247,7 @@ const SCENARIOS = {
     echostarOn: true,
     anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.30,
     termMethod: "exit", exitMultConn: 14, exitMultSpace: 18, exitMultAi: 28,
+    xAdGrowth: 0.18, aiSubsGrowth: 0.75, dataLicGrowth: 0.45, starshieldGrowth: 0.40,
   },
   base: {
     label: "Base", stockPrice: 150, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
@@ -251,6 +260,7 @@ const SCENARIOS = {
     echostarOn: true,
     anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.25,
     termMethod: "exit", exitMultConn: 12, exitMultSpace: 15, exitMultAi: 22,
+    xAdGrowth: 0.10, aiSubsGrowth: 0.50, dataLicGrowth: 0.30, starshieldGrowth: 0.30,
   },
   bear: {
     label: "Bear", stockPrice: 150, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 333,
@@ -263,6 +273,7 @@ const SCENARIOS = {
     echostarOn: true,
     anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.18,
     termMethod: "gordon", exitMultConn: 9, exitMultSpace: 11, exitMultAi: 15,
+    xAdGrowth: 0.02, aiSubsGrowth: 0.25, dataLicGrowth: 0.15, starshieldGrowth: 0.15,
   },
   statusQuo: {
     label: "Status Quo", stockPrice: 150, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
@@ -275,6 +286,7 @@ const SCENARIOS = {
     echostarOn: true,
     anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2029, anthropicMargin: 0.22,
     termMethod: "exit", exitMultConn: 10, exitMultSpace: 12, exitMultAi: 18,
+    xAdGrowth: 0.08, aiSubsGrowth: 0.35, dataLicGrowth: 0.20, starshieldGrowth: 0.22,
   },
 };
 
@@ -336,6 +348,14 @@ export default function SpaceXDCF() {
   const [exitMultSpace, setExitMultSpace] = useState(() => getHashParam("ems", 15));
   const [exitMultAi, setExitMultAi] = useState(() => getHashParam("ema", 22));
 
+  // AI baseline sub-line growth rates (Tier 2)
+  const [xAdGrowth, setXAdGrowth] = useState(() => getHashParam("xag", 0.10));
+  const [aiSubsGrowth, setAiSubsGrowth] = useState(() => getHashParam("asg", 0.50));
+  const [dataLicGrowth, setDataLicGrowth] = useState(() => getHashParam("dlg", 0.30));
+
+  // Connectivity Starshield growth (govt connectivity sub-line)
+  const [starshieldGrowth, setStarshieldGrowth] = useState(() => getHashParam("shg", 0.30));
+
   // UI state
   const [showSecondary, setShowSecondary] = useState(false);
   const [activeScenario, setActiveScenario] = useState(null);
@@ -360,6 +380,8 @@ export default function SpaceXDCF() {
     setAnthropicEndYear(s.anthropicEndYear); setAnthropicMargin(s.anthropicMargin);
     setTermMethod(s.termMethod); setExitMultConn(s.exitMultConn);
     setExitMultSpace(s.exitMultSpace); setExitMultAi(s.exitMultAi);
+    setXAdGrowth(s.xAdGrowth); setAiSubsGrowth(s.aiSubsGrowth);
+    setDataLicGrowth(s.dataLicGrowth); setStarshieldGrowth(s.starshieldGrowth);
   };
 
   const handleShare = () => {
@@ -373,6 +395,7 @@ export default function SpaceXDCF() {
       oc: orbitalOn, ocy: orbitalStartYear, occ: orbitalFY36, es: echostarOn,
       an: anthropicOn, anm: anthropicMonthly, any: anthropicEndYear, anmg: anthropicMargin,
       tm: termMethod, emc: exitMultConn, ems: exitMultSpace, ema: exitMultAi,
+      xag: xAdGrowth, asg: aiSubsGrowth, dlg: dataLicGrowth, shg: starshieldGrowth,
     };
     const params = new URLSearchParams(p);
     const url = `${window.location.origin}${window.location.pathname}#${params}`;
@@ -394,9 +417,15 @@ export default function SpaceXDCF() {
 
     // Year-by-year track variables
     let launchServPrev = FY25.spaceRev * FY25.launchServicesShare;
-    let launchDevPrev = FY25.spaceRev * FY25.launchDevShare;
-    let connEntGovtPrev = FY25.connRev * FY25.connEntGovtShare;
-    let aiBaselinePrev = FY25.aiRev;
+    let launchDevPrev = FY25.spaceRev * FY25.govtContractsShare;
+    // Connectivity Enterprise + Govt split
+    const connEntGovtFY25 = FY25.connRev * FY25.connEntGovtShare;
+    let enterprisePrev = connEntGovtFY25 * FY25.connEnterpriseShare;
+    let starshieldPrev = connEntGovtFY25 * FY25.connStarshieldShare;
+    // AI baseline sub-lines
+    let xAdRevPrev = FY25.aiRev * FY25.aiXAdShare;
+    let aiSubsRevPrev = FY25.aiRev * FY25.aiSubsShare;
+    let dataLicRevPrev = FY25.aiRev * FY25.aiDataLicShare;
     let starlinkSubs = FY25.starlinkSubs / 1000; // millions
     let starlinkArpu = FY25.starlinkArpu;
     let prevTotalRev = FY25.totalRev;
@@ -444,9 +473,12 @@ export default function SpaceXDCF() {
       const avgArpu = (starlinkArpu + newArpu) / 2;
       starlinkArpu = newArpu;
       const connConsumer = avgSubs * avgArpu * 12; // $M
-      // Enterprise + Govt
-      const entGovtGr = Math.max(entGovtGrowth - i * 0.025, 0.08);
-      const connEntGovt = connEntGovtPrev * (1 + entGovtGr);
+      // Enterprise + Govt split into two sub-lines
+      const enterpriseGr = Math.max(entGovtGrowth - i * 0.025, 0.08);
+      const starshieldGr = Math.max(starshieldGrowth - i * 0.02, 0.10);
+      const enterprise = enterprisePrev * (1 + enterpriseGr);
+      const starshield = starshieldPrev * (1 + starshieldGr);
+      const connEntGovt = enterprise + starshield;
       const connRev = connConsumer + connEntGovt;
       const connMarginStart = FY25.connAdjEbitda / FY25.connRev; // 63%
       const connMargin = connMarginStart + (connTermMargin - connMarginStart) * Math.min(1, t / 7);
@@ -457,9 +489,14 @@ export default function SpaceXDCF() {
       const connCapex = connRev * connCxRatio;
 
       // ── AI ──
-      // Baseline AI (Grok subs + X advertising + data licensing + small API)
-      const yearCAGR = Math.max(aiCAGR - i * aiCAGRDecay, 0.05);
-      const aiBaseline = aiBaselinePrev * (1 + yearCAGR);
+      // Baseline AI split into 3 sub-lines, each with its own growth + decay
+      const xAdGr = Math.max(xAdGrowth - i * 0.005, 0.03);          // X advertising — slow recovery, decays toward GDP
+      const aiSubsGr = Math.max(aiSubsGrowth - i * 0.06, 0.10);     // Grok / X Premium / SuperGrok — fast decel
+      const dataLicGr = Math.max(dataLicGrowth - i * 0.04, 0.08);   // Data licensing + API
+      const xAdRev = xAdRevPrev * (1 + xAdGr);
+      const aiSubsRev = aiSubsRevPrev * (1 + aiSubsGr);
+      const dataLicRev = dataLicRevPrev * (1 + dataLicGr);
+      const aiBaseline = xAdRev + aiSubsRev + dataLicRev;
 
       // Anthropic deal — locked compute-as-a-service revenue line ($1.25B/mo through 2029 per S-1)
       // FY26 assumed full year (deal already active per filing)
@@ -541,13 +578,14 @@ export default function SpaceXDCF() {
 
       projYears.push({
         fy, yr: t,
-        // Space
+        // Space (Launch & Development renamed → Government Contracts)
         launchServ, launchDev, starshipRev, spaceRev, spaceMargin, spaceAdjEbitda, spaceCapex, spaceUFCF,
-        // Connectivity
-        starlinkSubs: newSubs, starlinkArpu: newArpu, connConsumer, connEntGovt, connRev,
+        // Connectivity — now with Enterprise + Starshield split
+        starlinkSubs: newSubs, starlinkArpu: newArpu, connConsumer, enterprise, starshield, connEntGovt, connRev,
         connMargin, connAdjEbitda, connCapex, connUFCF,
-        // AI (now includes Anthropic contract revenue)
-        aiBaseline, anthropicRev, orbitalRev, aiRev, aiMargin, aiAdjEbitda, aiCapex, aiUFCF,
+        // AI (now with X Ads / Subs / Data Lic split + Anthropic + Orbital)
+        xAdRev, aiSubsRev, dataLicRev, aiBaseline, anthropicRev, orbitalRev, aiRev,
+        aiMargin, aiAdjEbitda, aiCapex, aiUFCF,
         // Total
         totalRev, totalAdjEbitda, totalCapex, totalUFCF, yoyRev,
         sbc, interestExp, interestInc, echostarOut, cash, debt,
@@ -557,8 +595,11 @@ export default function SpaceXDCF() {
       // Roll
       launchServPrev = launchServ;
       launchDevPrev = launchDev;
-      connEntGovtPrev = connEntGovt;
-      aiBaselinePrev = aiBaseline;
+      enterprisePrev = enterprise;
+      starshieldPrev = starshield;
+      xAdRevPrev = xAdRev;
+      aiSubsRevPrev = aiSubsRev;
+      dataLicRevPrev = dataLicRev;
     }
 
     // ── SOTP DCF ──
@@ -639,10 +680,11 @@ export default function SpaceXDCF() {
   }, [stockPrice, ipoShares, wacc, termGrowth, taxRate, sbcRatio,
       starlinkNetAdds, netAddsDecay, arpuFloor, arpuDecay, entGovtGrowth, connTermMargin, connCapexRatio,
       launchServGrowth, launchDevGrowth, spaceTermMargin, spaceCapexRatio, starshipOn, starshipStartYear, starshipFY32,
-      aiCAGR, aiCAGRDecay, aiBreakeven, aiTermMargin, aiCapexRatio, orbitalOn, orbitalStartYear, orbitalFY36,
+      aiBreakeven, aiTermMargin, aiCapexRatio, orbitalOn, orbitalStartYear, orbitalFY36,
       echostarOn,
       anthropicOn, anthropicMonthly, anthropicEndYear, anthropicMargin,
-      termMethod, exitMultConn, exitMultSpace, exitMultAi]);
+      termMethod, exitMultConn, exitMultSpace, exitMultAi,
+      xAdGrowth, aiSubsGrowth, dataLicGrowth, starshieldGrowth]);
 
   // ─── Chart data ───
   const chartData = useMemo(() => {
@@ -770,14 +812,16 @@ export default function SpaceXDCF() {
 
       {showSecondary && (
         <div style={{ marginTop: 16 }}>
-          <Slider label="Enterprise+Govt Growth Y1" value={entGovtGrowth} onChange={setEntGovtGrowth} min={0.05} max={0.60} step={0.01} format="pct" tooltip="FY26 growth rate for Connectivity enterprise + government revenue. Decelerates ~2.5pp/year." />
+          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 8, fontStyle: "italic" }}>Conn Enterprise+Govt = aviation/maritime/mobility (Enterprise) + Starshield (Govt)</div>
+          <Slider label="Enterprise Growth Y1" value={entGovtGrowth} onChange={setEntGovtGrowth} min={0.05} max={0.60} step={0.01} format="pct" tooltip="FY26 growth for Conn Enterprise (aviation, maritime, mobility, fixed-site commercial). Q1'26 aviation/maritime/mobility grew +$209M alone. Decelerates ~2.5pp/year. FY25 share of ent+govt ~72% (~$3.1B)." />
+          <Slider label="Starshield Growth Y1" value={starshieldGrowth} onChange={setStarshieldGrowth} min={0.00} max={0.60} step={0.01} format="pct" tooltip="FY26 growth for Starshield (govt-secure satellite network for national security). Long-term DoW + intel contracts. Q1'26 govt connectivity declined $175M (lumpy contract timing). FY25 share of ent+govt ~28% (~$1.2B)." />
           <Slider label="Conn Terminal EBITDA Margin" value={connTermMargin} onChange={setConnTermMargin} min={0.35} max={0.75} step={0.01} format="pct" tooltip="Steady-state Connectivity segment Adj EBITDA margin. FY25 was 63%; mature scaled comms operators do 50–65%." />
           <Slider label="Conn CapEx/Sales (term)" value={connCapexRatio} onChange={setConnCapexRatio} min={0.10} max={0.45} step={0.01} format="pct" tooltip="Long-run Connectivity capex as % of revenue. FY25 was 37%; settles to satellite refresh + ground equipment maintenance. Mature comms/cable ~20–25%." />
 
           <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
           <div style={{ fontSize: 11, color: C.spaceColor, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>Space (Falcon + Starship)</div>
           <Slider label="Launch Services Growth" value={launchServGrowth} onChange={setLaunchServGrowth} min={-0.15} max={0.20} step={0.01} format="pct" tooltip="Annual growth in Falcon customer launch revenue. Q1'26 was down 28%; FY25 Launch Services was ~flat. Will compress as customers migrate to Starship." />
-          <Slider label="Launch & Development Growth" value={launchDevGrowth} onChange={setLaunchDevGrowth} min={0.00} max={0.30} step={0.01} format="pct" tooltip="Growth in NASA CRS, DoW, and other long-term govt contracts. Grew 25% in FY25. Decelerates 1pp/year." />
+          <Slider label="Govt & L-T Contracts Growth" value={launchDevGrowth} onChange={setLaunchDevGrowth} min={0.00} max={0.30} step={0.01} format="pct" tooltip="Growth in NASA Cargo Resupply (CRS), Dept of War, and other multi-year government contracts. This is the 'Launch & Development' line in the S-1 — fixed-price contracts ranging 1–14 years. FY25 grew 25% off NASA CRS extension + new DoW contract. FY25 share of Space ~37% (~$1.5B). Higher margin than Launch Services." />
           <Slider label="Space Terminal Margin" value={spaceTermMargin} onChange={setSpaceTermMargin} min={0.10} max={0.50} step={0.01} format="pct" tooltip="Steady-state Space Adj EBITDA margin once Starship R&D ramps down. FY24 was 30% pre-Starship surge. Mature reusable launch should drive margin higher as cost/kg drops." />
           <Slider label="Space CapEx/Sales (term)" value={spaceCapexRatio} onChange={setSpaceCapexRatio} min={0.08} max={0.50} step={0.01} format="pct" tooltip="Long-run Space capex/sales ratio. FY25 was 94% during Starship infrastructure buildout. Mature ratio ~15–25% covers vehicle refresh, R&D capitalized, range/launch facilities." />
           <Toggle label="Starship Commercial" value={starshipOn} onChange={setStarshipOn} tooltip="Turn on to model Starship as a separate revenue line ramping from start year to FY32 contribution. Off = Falcon-only world." />
@@ -798,9 +842,11 @@ export default function SpaceXDCF() {
               <Slider label="Anthropic Margin" value={anthropicMargin} onChange={setAnthropicMargin} min={0.05} max={0.45} step={0.01} format="pct" tooltip="Adj EBITDA margin on Anthropic revenue. Compute-as-a-service economics — between hyperscaler infra (~30%) and pure pass-through (~10%). Default 25%." />
             </>
           )}
-          <Slider label="AI Baseline CAGR Y1" value={aiCAGR} onChange={setAiCAGR} min={0.05} max={0.80} step={0.01} format="pct" tooltip="Growth rate for the BASELINE AI business (Grok subs + X advertising + data licensing), excluding the Anthropic contract and orbital compute lines. FY25 grew 22%. Decelerates by 'decay' per year." />
-          <Slider label="AI CAGR Decay /yr" value={aiCAGRDecay} onChange={setAiCAGRDecay} min={0.02} max={0.15} step={0.01} format="pct" tooltip="Yearly deceleration applied to AI growth rate." />
-          <Slider label="AI Breakeven Year" value={aiBreakeven} onChange={setAiBreakeven} min={2027} max={2034} step={1} format="year" tooltip="First year AI Adj EBITDA reaches zero. FY25 was -39% margin ($1.2B loss). Margin interpolates linearly from FY25 to breakeven, then from breakeven to terminal." />
+          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 8, fontStyle: "italic" }}>AI baseline = X Ads + AI Subs + Data Licensing (per S-1 disaggregation)</div>
+          <Slider label="X Advertising Growth Y1" value={xAdGrowth} onChange={setXAdGrowth} min={-0.10} max={0.30} step={0.01} format="pct" tooltip="X (Twitter) advertising revenue growth in FY26. Q1'26 declined $100M as the ad platform was rebuilt; recovery depends on advertiser trust + AI-driven ad targeting. FY25 ad share of baseline AI ~56% ($1.8B)." />
+          <Slider label="AI Subscriptions Growth Y1" value={aiSubsGrowth} onChange={setAiSubsGrowth} min={0.15} max={1.20} step={0.05} format="pct" tooltip="Grok / X Premium / SuperGrok subscription growth in FY26. 6.3M paid subs as of Q1'26, up from much smaller base. Grew $177M in Q1'26 alone. SaaS-like economics, highest-margin AI sub-line. FY25 baseline share ~28% ($0.9B)." />
+          <Slider label="Data Licensing / API Growth Y1" value={dataLicGrowth} onChange={setDataLicGrowth} min={0.10} max={0.80} step={0.05} format="pct" tooltip="Data licensing arrangements + Grok API revenue growth. High-margin enterprise/dev revenue. Grew $88M in FY25. FY25 baseline share ~16% ($0.5B). Highest structural margin of any AI sub-line." />
+          <Slider label="AI Breakeven Year (blended)" value={aiBreakeven} onChange={setAiBreakeven} min={2027} max={2034} step={1} format="year" tooltip="First year blended baseline AI Adj EBITDA reaches zero. FY25 was -39% margin ($1.2B loss, driven mostly by compute infra burn now attributed to Compute Services capex). Margin interpolates linearly from FY25 to breakeven, then from breakeven to terminal." />
           <Slider label="AI Terminal Margin" value={aiTermMargin} onChange={setAiTermMargin} min={0.05} max={0.50} step={0.01} format="pct" tooltip="Long-run AI segment Adj EBITDA margin. Reached by FY35. Frontier model + ads + compute services blend." />
           <Slider label="AI CapEx/Sales (term)" value={aiCapexRatio} onChange={setAiCapexRatio} min={0.08} max={0.50} step={0.01} format="pct" tooltip="Steady-state AI capex/sales. FY25 was 398% during gigawatt buildout. Mature hyperscaler peers run 15–25% (Meta, Google, Microsoft). Decays geometrically from FY25 toward this terminal." />
           <Toggle label="Orbital AI Compute" value={orbitalOn} onChange={setOrbitalOn} tooltip="Model orbital AI compute as a separate revenue line. Highly speculative — S-1 says 100GW/yr aspirational target. Off by default in base case." />
