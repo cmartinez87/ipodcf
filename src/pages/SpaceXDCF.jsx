@@ -45,12 +45,13 @@ const FY25 = {
   sbcPct: 0.104, // FY25 SBC / revenue
 };
 
-// Capital structure constants
+// Capital structure constants — all post-2026 5-for-1 forward stock split (S-1 Note 14)
 const SHARES = {
   proformaBase: 12520, // pro-forma post preferred conversion + Class C reclass (millions)
-  optionsOut: 496,     // outstanding stock options
+  optionsOut: 496,     // outstanding stock options Dec 31 2025 (Note 14); Q1'26 net change small
   optionsAvgEx: 10.18, // weighted-avg exercise
-  rsuOut: 109 + 34,    // RSUs + RSAs (no meaningful exercise price)
+  rsuOut: 109 + 34,    // RSUs + RSAs (Note 14, no meaningful exercise price)
+  performanceAwards: 1319, // Mar 31 2026 PRSUs (Note 13) — Musk CEO Award (1,000M, $500B–$7.5T mkt cap milestones + Mars colony of 1M people) + Bret Johnsen CFO award + others. Performance-conditional, excluded from standard FDSO.
   echostarShares: 262, // shares to be issued for EchoStar spectrum
   echostarCash: 8500,  // $M cash component, closing Nov 2027
   echostarFY: 2028,    // model the outflow in FY28
@@ -233,6 +234,8 @@ const PARAM_MAP = {
   acy: "aiCapexFY26",
   // Compute capacity yield (Tier 2.2 — capacity-driven compute services revenue)
   cy: "capexYield",
+  // Cursor acquisition optionality + Musk Mega-Grant PRSUs
+  cur: "cursorValue", prsu: "prsuOn",
 };
 
 // ─── Scenarios ───
@@ -241,7 +244,7 @@ const PARAM_MAP = {
 //   Conn (mature subs): 12x  |  Space (defense/aerospace): 15x  |  AI (high-growth tech): 22x
 const SCENARIOS = {
   bull: {
-    label: "Bull", stockPrice: 150, wacc: 0.10, termGrowth: 0.035, taxRate: 0.21, sbcRatio: 0.08, ipoShares: 333,
+    label: "Bull", stockPrice: 150, wacc: 0.10, termGrowth: 0.035, taxRate: 0.21, sbcRatio: 0.08, ipoShares: 800,
     starlinkNetAdds: 8, netAddsDecay: 0.10, arpuFloor: 60, arpuDecay: 0.06,
     entGovtGrowth: 0.40, connTermMargin: 0.65, connCapexRatio: 0.20,
     launchServGrowth: 0.05, launchDevGrowth: 0.20, spaceTermMargin: 0.40, spaceCapexRatio: 0.15,
@@ -250,12 +253,13 @@ const SCENARIOS = {
     orbitalOn: true, orbitalStartYear: 2029, orbitalFY36: 12.0,
     echostarOn: true,
     anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.55,
-    termMethod: "exit", exitMultConn: 14, exitMultSpace: 18, exitMultAi: 28,
+    termMethod: "exit", exitMultConn: 14, exitMultSpace: 30, exitMultAi: 28,
     xAdGrowth: 0.18, aiSubsGrowth: 0.75, dataLicGrowth: 0.45, starshieldGrowth: 0.40,
     aiCapexFY26: 32, capexYield: 0.70,
+    cursorValue: 75000, prsuOn: false,
   },
   base: {
-    label: "Base", stockPrice: 150, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
+    label: "Base", stockPrice: 150, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
     starlinkNetAdds: 6, netAddsDecay: 0.15, arpuFloor: 55, arpuDecay: 0.10,
     entGovtGrowth: 0.30, connTermMargin: 0.60, connCapexRatio: 0.22,
     launchServGrowth: 0.00, launchDevGrowth: 0.15, spaceTermMargin: 0.32, spaceCapexRatio: 0.20,
@@ -264,12 +268,13 @@ const SCENARIOS = {
     orbitalOn: true, orbitalStartYear: 2030, orbitalFY36: 6.0,
     echostarOn: true,
     anthropicOn: true, anthropicMonthly: 1.25, anthropicEndYear: 2032, anthropicMargin: 0.45,
-    termMethod: "exit", exitMultConn: 12, exitMultSpace: 15, exitMultAi: 22,
+    termMethod: "exit", exitMultConn: 12, exitMultSpace: 20, exitMultAi: 22,
     xAdGrowth: 0.10, aiSubsGrowth: 0.50, dataLicGrowth: 0.30, starshieldGrowth: 0.30,
     aiCapexFY26: 28, capexYield: 0.50,
+    cursorValue: 0, prsuOn: false,
   },
   bear: {
-    label: "Bear", stockPrice: 150, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 333,
+    label: "Bear", stockPrice: 150, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 800,
     starlinkNetAdds: 4, netAddsDecay: 0.22, arpuFloor: 45, arpuDecay: 0.14,
     entGovtGrowth: 0.20, connTermMargin: 0.50, connCapexRatio: 0.28,
     launchServGrowth: -0.05, launchDevGrowth: 0.08, spaceTermMargin: 0.22, spaceCapexRatio: 0.28,
@@ -281,9 +286,10 @@ const SCENARIOS = {
     termMethod: "gordon", exitMultConn: 9, exitMultSpace: 11, exitMultAi: 15,
     xAdGrowth: 0.02, aiSubsGrowth: 0.25, dataLicGrowth: 0.15, starshieldGrowth: 0.15,
     aiCapexFY26: 28, capexYield: 0.30,
+    cursorValue: 0, prsuOn: false,
   },
   statusQuo: {
-    label: "Status Quo", stockPrice: 150, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 333,
+    label: "Status Quo", stockPrice: 150, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
     starlinkNetAdds: 5, netAddsDecay: 0.18, arpuFloor: 50, arpuDecay: 0.12,
     entGovtGrowth: 0.25, connTermMargin: 0.55, connCapexRatio: 0.25,
     launchServGrowth: 0.02, launchDevGrowth: 0.12, spaceTermMargin: 0.27, spaceCapexRatio: 0.22,
@@ -295,6 +301,7 @@ const SCENARIOS = {
     termMethod: "exit", exitMultConn: 10, exitMultSpace: 12, exitMultAi: 18,
     xAdGrowth: 0.08, aiSubsGrowth: 0.35, dataLicGrowth: 0.20, starshieldGrowth: 0.22,
     aiCapexFY26: 25, capexYield: 0.40,
+    cursorValue: 0, prsuOn: false,
   },
 };
 
@@ -302,7 +309,8 @@ const SCENARIOS = {
 export default function SpaceXDCF() {
   // ── State ──
   const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 150));
-  const [ipoShares, setIpoShares] = useState(() => getHashParam("ipo", 333));
+  // IPO shares default 800M — matches Excel model (800M primary + 120M greenshoe) at ~$125 net ≈ $100B raise
+  const [ipoShares, setIpoShares] = useState(() => getHashParam("ipo", 800));
   const [wacc, setWacc] = useState(() => getHashParam("w", 0.11));
   const [termGrowth, setTermGrowth] = useState(() => getHashParam("tg", 0.03));
   const [taxRate, setTaxRate] = useState(() => getHashParam("tax", 0.21));
@@ -372,6 +380,12 @@ export default function SpaceXDCF() {
   // Default 0.50 reflects conservative follow-on contract economics + partial internal use.
   const [capexYield, setCapexYield] = useState(() => getHashParam("cy", 0.50));
 
+  // Cursor acquisition optionality (call option per S-1 §16; $60B implied value mentioned)
+  const [cursorValue, setCursorValue] = useState(() => getHashParam("cur", 0));
+
+  // Musk Mega-Grant PRSUs — toggle including the 1,319M performance/market-condition awards in FDSO
+  const [prsuOn, setPrsuOn] = useState(() => getHashParam("prsu", false));
+
   // UI state
   const [showSecondary, setShowSecondary] = useState(false);
   const [activeScenario, setActiveScenario] = useState(null);
@@ -400,6 +414,8 @@ export default function SpaceXDCF() {
     setDataLicGrowth(s.dataLicGrowth); setStarshieldGrowth(s.starshieldGrowth);
     setAiCapexFY26(s.aiCapexFY26);
     setCapexYield(s.capexYield);
+    setCursorValue(s.cursorValue);
+    setPrsuOn(s.prsuOn);
   };
 
   const handleShare = () => {
@@ -415,6 +431,7 @@ export default function SpaceXDCF() {
       tm: termMethod, emc: exitMultConn, ems: exitMultSpace, ema: exitMultAi,
       xag: xAdGrowth, asg: aiSubsGrowth, dlg: dataLicGrowth, shg: starshieldGrowth,
       acy: aiCapexFY26, cy: capexYield,
+      cur: cursorValue, prsu: prsuOn,
     };
     const params = new URLSearchParams(p);
     const url = `${window.location.origin}${window.location.pathname}#${params}`;
@@ -678,7 +695,7 @@ export default function SpaceXDCF() {
     const ipoProceeds = ipoShares * stockPrice;
 
     // Equity bridge
-    const equity = totalEV + netCash + ipoProceeds - pvEchostarCash;
+    const equity = totalEV + netCash + ipoProceeds - pvEchostarCash + cursorValue;
 
     // FDSO (treasury-stock method)
     const optionDilution = stockPrice > SHARES.optionsAvgEx
@@ -686,7 +703,9 @@ export default function SpaceXDCF() {
       : 0;
     const rsuDilution = SHARES.rsuOut;
     const echostarSh = echostarOn ? SHARES.echostarShares : 0;
-    const fdso = SHARES.proformaBase + ipoShares + echostarSh + optionDilution + rsuDilution;
+    // Optional: include Musk Mega-Grant + other performance-condition PRSUs (1,319M)
+    const prsuDilution = prsuOn ? SHARES.performanceAwards : 0;
+    const fdso = SHARES.proformaBase + ipoShares + echostarSh + optionDilution + rsuDilution + prsuDilution;
 
     const impliedPrice = equity / fdso;
     const upside = impliedPrice / stockPrice - 1;
@@ -708,7 +727,7 @@ export default function SpaceXDCF() {
       projYears, totalEV, evSpace, evConn, evAi, pvEchostarCash,
       pvSpace, pvConn, pvAi, pvSpaceTerm, pvConnTerm, pvAiTerm,
       equity, fdso, impliedPrice, impliedMktCap, upside, moic, impliedIrr,
-      ipoProceeds, netCash, optionDilution, rsuDilution, echostarSh,
+      ipoProceeds, netCash, optionDilution, rsuDilution, echostarSh, prsuDilution, cursorValue,
       fy27, fy28, fy30, impliedEvFY27Rev, impliedEvFY28Ebitda, impliedEvFY30Ebitda,
     };
   }, [stockPrice, ipoShares, wacc, termGrowth, taxRate, sbcRatio,
@@ -718,7 +737,8 @@ export default function SpaceXDCF() {
       echostarOn,
       anthropicOn, anthropicMonthly, anthropicEndYear, anthropicMargin,
       termMethod, exitMultConn, exitMultSpace, exitMultAi,
-      xAdGrowth, aiSubsGrowth, dataLicGrowth, starshieldGrowth, aiCapexFY26, capexYield]);
+      xAdGrowth, aiSubsGrowth, dataLicGrowth, starshieldGrowth, aiCapexFY26, capexYield,
+      cursorValue, prsuOn]);
 
   // ─── Chart data ───
   const chartData = useMemo(() => {
@@ -898,6 +918,8 @@ export default function SpaceXDCF() {
           <Slider label="Effective Tax Rate" value={taxRate} onChange={setTaxRate} min={0.15} max={0.30} step={0.01} format="pct" tooltip="Blended federal + state tax rate on segment EBITDA. 21% = federal statutory; OBBBA reversal of NOL benefits affects near-term cash tax." />
           <Slider label="SBC % of Revenue" value={sbcRatio} onChange={setSbcRatio} min={0.04} max={0.18} step={0.005} format="pct" tooltip="Stock-based compensation as % of revenue. FY25 was 10.4% ($1.95B). xAI-segment SBC pushed higher." />
           <Toggle label="EchoStar Spectrum Close" value={echostarOn} onChange={setEchostarOn} tooltip="If on, model EchoStar spectrum acquisition: $8.5B cash outflow in FY28 + 262M new shares (valued at $42.40 = $11.1B). Currently expected to close Nov 2027." />
+          <Slider label="Cursor Acq. Optionality ($B)" value={cursorValue / 1000} onChange={(v) => setCursorValue(v * 1000)} min={0} max={100} step={5} format="$B" tooltip="Optional add to equity value for Cursor acquisition call option (S-1 §16). $60B implied equity value disclosed; depending on Cursor's ARR and growth trajectory, fair-value placeholder ranges $45B (low) to $100B (high). 0 = exclude. Modeled as a direct equity value adjustment, not modeled as revenue." />
+          <Toggle label="Include Musk Mega-Grant PRSUs" value={prsuOn} onChange={setPrsuOn} tooltip="If on, adds 1,319M performance/market-condition PRSUs to FDSO. Includes the 1,000M Musk CEO Award (vests on market cap milestones from $500B to $7.5T AND a Mars colony of 1M people) + Bret Johnsen CFO award + others. Conservatively off (consistent with S-1 EPS exclusion); enable to stress-test full dilution." />
         </div>
       )}
 
@@ -1045,6 +1067,14 @@ export default function SpaceXDCF() {
                         <td style={{ textAlign: "right", padding: "4px" }}>{model.pvEchostarCash > 0 ? `(${fmt$B(model.pvEchostarCash, 1)})` : "—"}</td>
                         <td></td>
                       </tr>
+                      {model.cursorValue > 0 && (
+                        <tr style={{ color: C.textMuted, fontSize: 11 }}>
+                          <td style={{ padding: "4px" }}>+ Cursor Optionality</td>
+                          <td colSpan={2}></td>
+                          <td style={{ textAlign: "right", padding: "4px", color: C.green }}>{fmt$B(model.cursorValue, 1)}</td>
+                          <td></td>
+                        </tr>
+                      )}
                       <tr style={{ borderTop: `1px solid ${C.border}` }}>
                         <td style={{ padding: "10px 4px", fontWeight: 700 }}>= Equity Value</td>
                         <td colSpan={2}></td>
@@ -1241,6 +1271,10 @@ export default function SpaceXDCF() {
                   <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                     <td style={{ padding: 8, color: C.textMuted }}>+ RSUs + RSAs (fully dilutive)</td>
                     <td style={{ textAlign: "right", padding: 8, color: C.blueLight }}>+{model.rsuDilution}M</td>
+                  </tr>
+                  <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: 8, color: model.prsuDilution > 0 ? C.textMuted : C.textDim }}>+ Musk Mega-Grant PRSUs {model.prsuDilution > 0 ? "" : "(off)"}</td>
+                    <td style={{ textAlign: "right", padding: 8, color: model.prsuDilution > 0 ? C.blueLight : C.textDim }}>+{model.prsuDilution}M</td>
                   </tr>
                   <tr>
                     <td style={{ padding: 10, fontWeight: 700 }}>= Fully Diluted Shares Outstanding</td>
