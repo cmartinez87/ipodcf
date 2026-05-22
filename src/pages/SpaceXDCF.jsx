@@ -244,7 +244,7 @@ const PARAM_MAP = {
 //   Conn (mature subs): 12x  |  Space (defense/aerospace): 15x  |  AI (high-growth tech): 22x
 const SCENARIOS = {
   bull: {
-    label: "Bull", stockPrice: 150, wacc: 0.10, termGrowth: 0.035, taxRate: 0.21, sbcRatio: 0.08, ipoShares: 800,
+    label: "Bull", stockPrice: 125, wacc: 0.10, termGrowth: 0.035, taxRate: 0.21, sbcRatio: 0.08, ipoShares: 800,
     starlinkNetAdds: 8, netAddsDecay: 0.10, arpuFloor: 60, arpuDecay: 0.06,
     entGovtGrowth: 0.40, connTermMargin: 0.65, connCapexRatio: 0.20,
     launchServGrowth: 0.05, launchDevGrowth: 0.20, spaceTermMargin: 0.40, spaceCapexRatio: 0.15,
@@ -259,7 +259,7 @@ const SCENARIOS = {
     cursorValue: 75000, prsuOn: false,
   },
   base: {
-    label: "Base", stockPrice: 150, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
+    label: "Base", stockPrice: 125, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
     starlinkNetAdds: 6, netAddsDecay: 0.15, arpuFloor: 55, arpuDecay: 0.10,
     entGovtGrowth: 0.30, connTermMargin: 0.60, connCapexRatio: 0.22,
     launchServGrowth: 0.00, launchDevGrowth: 0.15, spaceTermMargin: 0.32, spaceCapexRatio: 0.20,
@@ -274,7 +274,7 @@ const SCENARIOS = {
     cursorValue: 0, prsuOn: false,
   },
   bear: {
-    label: "Bear", stockPrice: 150, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 800,
+    label: "Bear", stockPrice: 125, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 800,
     starlinkNetAdds: 4, netAddsDecay: 0.22, arpuFloor: 45, arpuDecay: 0.14,
     entGovtGrowth: 0.20, connTermMargin: 0.50, connCapexRatio: 0.28,
     launchServGrowth: -0.05, launchDevGrowth: 0.08, spaceTermMargin: 0.22, spaceCapexRatio: 0.28,
@@ -289,7 +289,7 @@ const SCENARIOS = {
     cursorValue: 0, prsuOn: false,
   },
   statusQuo: {
-    label: "Status Quo", stockPrice: 150, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
+    label: "Status Quo", stockPrice: 125, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
     starlinkNetAdds: 5, netAddsDecay: 0.18, arpuFloor: 50, arpuDecay: 0.12,
     entGovtGrowth: 0.25, connTermMargin: 0.55, connCapexRatio: 0.25,
     launchServGrowth: 0.02, launchDevGrowth: 0.12, spaceTermMargin: 0.27, spaceCapexRatio: 0.22,
@@ -308,87 +308,89 @@ const SCENARIOS = {
 // ─── Main Component ───
 export default function SpaceXDCF() {
   // ── State ──
-  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 150));
-  // IPO shares default 800M — matches Excel model (800M primary + 120M greenshoe) at ~$125 net ≈ $100B raise
-  const [ipoShares, setIpoShares] = useState(() => getHashParam("ipo", 800));
-  const [wacc, setWacc] = useState(() => getHashParam("w", 0.11));
-  const [termGrowth, setTermGrowth] = useState(() => getHashParam("tg", 0.03));
-  const [taxRate, setTaxRate] = useState(() => getHashParam("tax", 0.21));
-  const [sbcRatio, setSbcRatio] = useState(() => getHashParam("sbc", 0.10));
+  // All defaults derive from SCENARIOS.bull so a fresh load shows the Bull case.
+  // URL hash params (if present) override; see PARAM_MAP / handleShare.
+  const D = SCENARIOS.bull;
+  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", D.stockPrice));
+  const [ipoShares, setIpoShares] = useState(() => getHashParam("ipo", D.ipoShares));
+  const [wacc, setWacc] = useState(() => getHashParam("w", D.wacc));
+  const [termGrowth, setTermGrowth] = useState(() => getHashParam("tg", D.termGrowth));
+  const [taxRate, setTaxRate] = useState(() => getHashParam("tax", D.taxRate));
+  const [sbcRatio, setSbcRatio] = useState(() => getHashParam("sbc", D.sbcRatio));
 
   // Connectivity
-  const [starlinkNetAdds, setStarlinkNetAdds] = useState(() => getHashParam("na", 6));
-  const [netAddsDecay, setNetAddsDecay] = useState(() => getHashParam("nad", 0.15));
-  const [arpuFloor, setArpuFloor] = useState(() => getHashParam("af", 55));
-  const [arpuDecay, setArpuDecay] = useState(() => getHashParam("adr", 0.10));
-  const [entGovtGrowth, setEntGovtGrowth] = useState(() => getHashParam("eg", 0.30));
-  const [connTermMargin, setConnTermMargin] = useState(() => getHashParam("ctm", 0.60));
-  const [connCapexRatio, setConnCapexRatio] = useState(() => getHashParam("ccr", 0.22));
+  const [starlinkNetAdds, setStarlinkNetAdds] = useState(() => getHashParam("na", D.starlinkNetAdds));
+  const [netAddsDecay, setNetAddsDecay] = useState(() => getHashParam("nad", D.netAddsDecay));
+  const [arpuFloor, setArpuFloor] = useState(() => getHashParam("af", D.arpuFloor));
+  const [arpuDecay, setArpuDecay] = useState(() => getHashParam("adr", D.arpuDecay));
+  const [entGovtGrowth, setEntGovtGrowth] = useState(() => getHashParam("eg", D.entGovtGrowth));
+  const [connTermMargin, setConnTermMargin] = useState(() => getHashParam("ctm", D.connTermMargin));
+  const [connCapexRatio, setConnCapexRatio] = useState(() => getHashParam("ccr", D.connCapexRatio));
 
   // Space
-  const [launchServGrowth, setLaunchServGrowth] = useState(() => getHashParam("lsg", 0.00));
-  const [launchDevGrowth, setLaunchDevGrowth] = useState(() => getHashParam("ldg", 0.15));
-  const [spaceTermMargin, setSpaceTermMargin] = useState(() => getHashParam("stm", 0.32));
-  const [spaceCapexRatio, setSpaceCapexRatio] = useState(() => getHashParam("scr", 0.20));
-  const [starshipOn, setStarshipOn] = useState(() => getHashParam("ss", true));
-  const [starshipStartYear, setStarshipStartYear] = useState(() => getHashParam("ssy", 2028));
-  const [starshipFY32, setStarshipFY32] = useState(() => getHashParam("ssc", 4.0));
+  const [launchServGrowth, setLaunchServGrowth] = useState(() => getHashParam("lsg", D.launchServGrowth));
+  const [launchDevGrowth, setLaunchDevGrowth] = useState(() => getHashParam("ldg", D.launchDevGrowth));
+  const [spaceTermMargin, setSpaceTermMargin] = useState(() => getHashParam("stm", D.spaceTermMargin));
+  const [spaceCapexRatio, setSpaceCapexRatio] = useState(() => getHashParam("scr", D.spaceCapexRatio));
+  const [starshipOn, setStarshipOn] = useState(() => getHashParam("ss", D.starshipOn));
+  const [starshipStartYear, setStarshipStartYear] = useState(() => getHashParam("ssy", D.starshipStartYear));
+  const [starshipFY32, setStarshipFY32] = useState(() => getHashParam("ssc", D.starshipFY32));
 
-  // AI
+  // AI (aiCAGR/aiCAGRDecay retained for URL backwards compat; not used in computation)
   const [aiCAGR, setAiCAGR] = useState(() => getHashParam("ar", 0.40));
   const [aiCAGRDecay, setAiCAGRDecay] = useState(() => getHashParam("ad", 0.07));
-  const [aiBreakeven, setAiBreakeven] = useState(() => getHashParam("abe", 2030));
-  const [aiTermMargin, setAiTermMargin] = useState(() => getHashParam("atm", 0.30));
-  const [aiCapexRatio, setAiCapexRatio] = useState(() => getHashParam("acr", 0.18));
-  const [orbitalOn, setOrbitalOn] = useState(() => getHashParam("oc", false));
-  const [orbitalStartYear, setOrbitalStartYear] = useState(() => getHashParam("ocy", 2030));
-  const [orbitalFY36, setOrbitalFY36] = useState(() => getHashParam("occ", 5.0));
+  const [aiBreakeven, setAiBreakeven] = useState(() => getHashParam("abe", D.aiBreakeven));
+  const [aiTermMargin, setAiTermMargin] = useState(() => getHashParam("atm", D.aiTermMargin));
+  const [aiCapexRatio, setAiCapexRatio] = useState(() => getHashParam("acr", D.aiCapexRatio));
+  const [orbitalOn, setOrbitalOn] = useState(() => getHashParam("oc", D.orbitalOn));
+  const [orbitalStartYear, setOrbitalStartYear] = useState(() => getHashParam("ocy", D.orbitalStartYear));
+  const [orbitalFY36, setOrbitalFY36] = useState(() => getHashParam("occ", D.orbitalFY36));
 
   // EchoStar
-  const [echostarOn, setEchostarOn] = useState(() => getHashParam("es", true));
+  const [echostarOn, setEchostarOn] = useState(() => getHashParam("es", D.echostarOn));
 
   // Anthropic deal — locked compute-as-a-service contract
-  const [anthropicOn, setAnthropicOn] = useState(() => getHashParam("an", true));
-  const [anthropicMonthly, setAnthropicMonthly] = useState(() => getHashParam("anm", 1.25));
-  const [anthropicEndYear, setAnthropicEndYear] = useState(() => getHashParam("any", 2032));
-  const [anthropicMargin, setAnthropicMargin] = useState(() => getHashParam("anmg", 0.45));
+  const [anthropicOn, setAnthropicOn] = useState(() => getHashParam("an", D.anthropicOn));
+  const [anthropicMonthly, setAnthropicMonthly] = useState(() => getHashParam("anm", D.anthropicMonthly));
+  const [anthropicEndYear, setAnthropicEndYear] = useState(() => getHashParam("any", D.anthropicEndYear));
+  const [anthropicMargin, setAnthropicMargin] = useState(() => getHashParam("anmg", D.anthropicMargin));
 
   // Terminal value methodology
   const [termMethod, setTermMethod] = useState(() => {
     const hash = window.location.hash.slice(1);
-    if (!hash) return "exit";
+    if (!hash) return D.termMethod;
     const params = new URLSearchParams(hash);
-    return params.get("tm") || "exit";
+    return params.get("tm") || D.termMethod;
   });
-  const [exitMultConn, setExitMultConn] = useState(() => getHashParam("emc", 12));
-  const [exitMultSpace, setExitMultSpace] = useState(() => getHashParam("ems", 15));
-  const [exitMultAi, setExitMultAi] = useState(() => getHashParam("ema", 22));
+  const [exitMultConn, setExitMultConn] = useState(() => getHashParam("emc", D.exitMultConn));
+  const [exitMultSpace, setExitMultSpace] = useState(() => getHashParam("ems", D.exitMultSpace));
+  const [exitMultAi, setExitMultAi] = useState(() => getHashParam("ema", D.exitMultAi));
 
   // AI baseline sub-line growth rates (Tier 2)
-  const [xAdGrowth, setXAdGrowth] = useState(() => getHashParam("xag", 0.10));
-  const [aiSubsGrowth, setAiSubsGrowth] = useState(() => getHashParam("asg", 0.50));
-  const [dataLicGrowth, setDataLicGrowth] = useState(() => getHashParam("dlg", 0.30));
+  const [xAdGrowth, setXAdGrowth] = useState(() => getHashParam("xag", D.xAdGrowth));
+  const [aiSubsGrowth, setAiSubsGrowth] = useState(() => getHashParam("asg", D.aiSubsGrowth));
+  const [dataLicGrowth, setDataLicGrowth] = useState(() => getHashParam("dlg", D.dataLicGrowth));
 
   // Connectivity Starshield growth (govt connectivity sub-line)
-  const [starshieldGrowth, setStarshieldGrowth] = useState(() => getHashParam("shg", 0.30));
+  const [starshieldGrowth, setStarshieldGrowth] = useState(() => getHashParam("shg", D.starshieldGrowth));
 
   // AI buildout peak — absolute-dollar capex anchor for FY26
-  const [aiCapexFY26, setAiCapexFY26] = useState(() => getHashParam("acy", 30));
+  const [aiCapexFY26, setAiCapexFY26] = useState(() => getHashParam("acy", D.aiCapexFY26));
 
   // Compute Capacity Yield — $ of annual compute services revenue per $1 of cumulative AI capex
   // Anchored to Anthropic deal economics: $15B/yr on ~$18.3B cumulative capex = 82% yield.
-  // Default 0.50 reflects conservative follow-on contract economics + partial internal use.
-  const [capexYield, setCapexYield] = useState(() => getHashParam("cy", 0.50));
+  const [capexYield, setCapexYield] = useState(() => getHashParam("cy", D.capexYield));
 
   // Cursor acquisition optionality (call option per S-1 §16; $60B implied value mentioned)
-  const [cursorValue, setCursorValue] = useState(() => getHashParam("cur", 0));
+  const [cursorValue, setCursorValue] = useState(() => getHashParam("cur", D.cursorValue));
 
   // Musk Mega-Grant PRSUs — toggle including the 1,319M performance/market-condition awards in FDSO
-  const [prsuOn, setPrsuOn] = useState(() => getHashParam("prsu", false));
+  const [prsuOn, setPrsuOn] = useState(() => getHashParam("prsu", D.prsuOn));
 
-  // UI state
+  // UI state — Bull is the default active scenario unless a URL hash has been set
+  const hasUrlState = typeof window !== "undefined" && window.location.hash.length > 1;
   const [showSecondary, setShowSecondary] = useState(false);
-  const [activeScenario, setActiveScenario] = useState(null);
+  const [activeScenario, setActiveScenario] = useState(hasUrlState ? null : "bull");
   const [copied, setCopied] = useState(false);
 
   const applyScenario = (key) => {
