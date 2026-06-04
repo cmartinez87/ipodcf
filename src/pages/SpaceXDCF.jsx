@@ -244,7 +244,7 @@ const PARAM_MAP = {
 //   Conn (mature subs): 12x  |  Space (defense/aerospace): 15x  |  AI (high-growth tech): 22x
 const SCENARIOS = {
   bull: {
-    label: "Bull", stockPrice: 125, wacc: 0.10, termGrowth: 0.035, taxRate: 0.21, sbcRatio: 0.08, ipoShares: 800,
+    label: "Bull", stockPrice: 135, wacc: 0.10, termGrowth: 0.035, taxRate: 0.21, sbcRatio: 0.08, ipoShares: 556,
     starlinkNetAdds: 8, netAddsDecay: 0.10, arpuFloor: 60, arpuDecay: 0.06,
     entGovtGrowth: 0.40, connTermMargin: 0.65, connCapexRatio: 0.20,
     launchServGrowth: 0.05, launchDevGrowth: 0.20, spaceTermMargin: 0.40, spaceCapexRatio: 0.15,
@@ -259,7 +259,7 @@ const SCENARIOS = {
     cursorValue: 75000, prsuOn: false,
   },
   base: {
-    label: "Base", stockPrice: 125, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
+    label: "Base", stockPrice: 135, wacc: 0.11, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 556,
     starlinkNetAdds: 6, netAddsDecay: 0.15, arpuFloor: 55, arpuDecay: 0.10,
     entGovtGrowth: 0.30, connTermMargin: 0.60, connCapexRatio: 0.22,
     launchServGrowth: 0.00, launchDevGrowth: 0.15, spaceTermMargin: 0.32, spaceCapexRatio: 0.20,
@@ -274,7 +274,7 @@ const SCENARIOS = {
     cursorValue: 0, prsuOn: false,
   },
   bear: {
-    label: "Bear", stockPrice: 125, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 800,
+    label: "Bear", stockPrice: 135, wacc: 0.13, termGrowth: 0.025, taxRate: 0.23, sbcRatio: 0.12, ipoShares: 556,
     starlinkNetAdds: 4, netAddsDecay: 0.22, arpuFloor: 45, arpuDecay: 0.14,
     entGovtGrowth: 0.20, connTermMargin: 0.50, connCapexRatio: 0.28,
     launchServGrowth: -0.05, launchDevGrowth: 0.08, spaceTermMargin: 0.22, spaceCapexRatio: 0.28,
@@ -289,7 +289,7 @@ const SCENARIOS = {
     cursorValue: 0, prsuOn: false,
   },
   statusQuo: {
-    label: "Status Quo", stockPrice: 125, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 800,
+    label: "Status Quo", stockPrice: 135, wacc: 0.12, termGrowth: 0.03, taxRate: 0.21, sbcRatio: 0.10, ipoShares: 556,
     starlinkNetAdds: 5, netAddsDecay: 0.18, arpuFloor: 50, arpuDecay: 0.12,
     entGovtGrowth: 0.25, connTermMargin: 0.55, connCapexRatio: 0.25,
     launchServGrowth: 0.02, launchDevGrowth: 0.12, spaceTermMargin: 0.27, spaceCapexRatio: 0.22,
@@ -817,8 +817,8 @@ export default function SpaceXDCF() {
   const inputPanel = (
     <div style={{ width: 320, flexShrink: 0, background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
       <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 16 }}>Market Inputs</div>
-      <NumberInput label="Stock Price" value={stockPrice} onChange={setStockPrice} tooltip="Reference share price on pro-forma 12.52B base. $150 ≈ $1.9T equity (midpoint of reported $1.5–2T IPO target). Private-market $600 marks are on a much smaller pre-conversion base." />
-      <NumberInput label="IPO Shares Issued (M)" value={ipoShares} onChange={setIpoShares} prefix="" suffix="M" tooltip="New Class A shares sold in the IPO. Default 333M at $150 raises ~$50B. Press reports suggest a $50–75B raise." />
+      <NumberInput label="Stock Price" value={stockPrice} onChange={setStockPrice} tooltip="Reference share price. $135 = current reported IPO target price. Pro-forma post-IPO share base; implied equity ≈ stock price × FDSO. Private-market $600 marks were on a smaller pre-conversion share base; pro-forma equivalents land in the $130–160 range for the reported $1.5–2T target." />
+      <NumberInput label="IPO Shares Issued (M)" value={ipoShares} onChange={setIpoShares} prefix="" suffix="M" tooltip="New Class A shares sold in the IPO. Default 556M at $135 raises ~$75B gross, matching the reported target. Greenshoe (~15% over-allotment) would add up to 83M more shares." />
 
       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
       <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>Valuation</div>
