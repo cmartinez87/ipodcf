@@ -190,6 +190,7 @@ const PARAM_MAP = {
   cm: "cmYieldBps", mix: "cmMix", exp: "expansionRate", tm: "termEbitdaMargin",
   ncg: "netClientGrowth", avgd: "avgDeposit", ia: "iaReturn", dil: "dilution", bb: "buybackRate",
   opex: "opexExMktg", sm: "smEfficiency", gm: "grossMargin", tax: "taxRate", fcf: "fcfConversion",
+  cmx: "cmExitMult", iax: "iaExitMult",
 };
 
 // ─── Interest Rate Scenario Presets (recalibrated to Q1 FY27 actuals — Jun 2026) ───
@@ -197,21 +198,21 @@ const SCENARIOS = {
   falling: {
     label: "Falling", effr: 3.64, fy29Effr: 2.0, cmYieldBps: 52, cmMix: 0.25,
     expansionRate: 0.03, netClientGrowth: 0.008, avgDeposit: 6, iaReturn: 0.04,
-    termEbitdaMargin: 0.50, wacc: 0.13, termGrowth: 0.03,
+    termEbitdaMargin: 0.50, wacc: 0.13, termGrowth: 0.03, cmExitMult: 8, iaExitMult: 15,
     opexExMktg: 0.52, smEfficiency: 100, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.80, dilution: 0.01, buybackRate: 0.50,
   },
   flat: {
     label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.35,
     expansionRate: 0.045, netClientGrowth: 0.01, avgDeposit: 7, iaReturn: 0.07,
-    termEbitdaMargin: 0.55, wacc: 0.13, termGrowth: 0.03,
+    termEbitdaMargin: 0.55, wacc: 0.13, termGrowth: 0.03, cmExitMult: 9, iaExitMult: 18,
     opexExMktg: 0.50, smEfficiency: 120, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, buybackRate: 0.50,
   },
   rising: {
     label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 62, cmMix: 0.45,
     expansionRate: 0.06, netClientGrowth: 0.015, avgDeposit: 10, iaReturn: 0.09,
-    termEbitdaMargin: 0.58, wacc: 0.13, termGrowth: 0.03,
+    termEbitdaMargin: 0.58, wacc: 0.13, termGrowth: 0.03, cmExitMult: 11, iaExitMult: 22,
     opexExMktg: 0.47, smEfficiency: 140, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, buybackRate: 0.50,
   },
@@ -229,6 +230,8 @@ export default function WealthfrontDCF() {
   const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.35));
   const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.045));
   const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.55));
+  const [cmExitMult, setCmExitMult] = useState(() => getHashParam("cmx", 9));
+  const [iaExitMult, setIaExitMult] = useState(() => getHashParam("iax", 18));
 
   // Secondary inputs — initialized from URL hash if present
   const hasHashParams = window.location.hash.length > 1;
@@ -255,6 +258,7 @@ export default function WealthfrontDCF() {
     setCmMix(s.cmMix); setExpansionRate(s.expansionRate);
     setNetClientGrowth(s.netClientGrowth); setAvgDeposit(s.avgDeposit); setIaReturn(s.iaReturn);
     setTermEbitdaMargin(s.termEbitdaMargin); setWacc(s.wacc);
+    setCmExitMult(s.cmExitMult); setIaExitMult(s.iaExitMult);
     setTermGrowth(s.termGrowth); setOpexExMktg(s.opexExMktg);
     setSmEfficiency(s.smEfficiency); setGrossMargin(s.grossMargin);
     setTaxRate(s.taxRate); setFcfConversion(s.fcfConversion);
@@ -267,6 +271,7 @@ export default function WealthfrontDCF() {
       cm: cmYieldBps, mix: cmMix, exp: expansionRate, tm: termEbitdaMargin,
       ncg: netClientGrowth, avgd: avgDeposit, ia: iaReturn, dil: dilution, bb: buybackRate,
       opex: opexExMktg, sm: smEfficiency, gm: grossMargin, tax: taxRate, fcf: fcfConversion,
+      cmx: cmExitMult, iax: iaExitMult,
     });
     const url = `${window.location.origin}${window.location.pathname}#${params}`;
     window.history.replaceState(null, "", url);
@@ -326,6 +331,7 @@ export default function WealthfrontDCF() {
     // Extended EBITDA margins: computed dynamically after FY30 detailed margin is known
     // Will be populated after the detailed projection loop (see below)
     let extendedEbitdaMargins = null; // placeholder — set after FY27-FY30 loop
+    let extCmRevShare = null; // CM revenue share carried through extended years (set from FY30)
     // Extended FCF conversion ramps
     const extendedFcfConversion = [0.82, 0.83, 0.84, 0.84, 0.85, 0.85];
 
@@ -513,8 +519,12 @@ export default function WealthfrontDCF() {
         const clientGrowthRate = revGrowth * 0.6;
         clients = clients * (1 + clientGrowthRate);
 
-        const cmRevenue = totalRevenue * 0.65; // approximate split
-        const iaRevenue = totalRevenue * 0.35;
+        // Carry CM/IA revenue split from FY30 and keep drifting toward IA (cash-to-invest
+        // continues, decelerating), floored at 50% — this feeds the sum-of-the-parts terminal value.
+        if (extCmRevShare == null) extCmRevShare = projYears[3].cmRevenue / projYears[3].totalRevenue;
+        extCmRevShare = Math.max(extCmRevShare - 0.015, 0.50);
+        const cmRevenue = totalRevenue * extCmRevShare;
+        const iaRevenue = totalRevenue * (1 - extCmRevShare);
         const blendedYield = totalRevenue / totalAssets;
         const grossProfit = totalRevenue * grossMargin;
 
@@ -539,14 +549,21 @@ export default function WealthfrontDCF() {
     const pvFcfs = projYears.map((y, i) => y.ufcf / Math.pow(1 + wacc, i + 1));
     const sumPvFcf = pvFcfs.reduce((a, b) => a + b, 0);
 
-    // Terminal value: Adj. EBITDA × FCF% (consistent with projection UFCF)
-    const lastRevenue = projYears[years - 1].totalRevenue;
-    const termRevenue = lastRevenue * (1 + termGrowth);
-    const termEbitda = termRevenue * termEbitdaMargin;
-    const termUfcf = termEbitda * fcfConversion;
+    // ─── Terminal Value: Sum-of-the-Parts exit multiples ───
+    // Split terminal EBITDA by revenue mix, then apply a low (bank/spread-like) multiple to the
+    // rate-sensitive Cash Management EBITDA and a premium multiple to the sticky, recurring
+    // Investment Advisory fee annuity. As the mix shifts to IA, the blended multiple expands —
+    // capturing the quality re-rating even as the take rate falls.
+    const termYear = projYears[years - 1];
+    const termEbitda = termYear.adjEbitda;
+    const termCmRevShare = termYear.cmRevenue / termYear.totalRevenue;
+    const termCmEbitda = termEbitda * termCmRevShare;
+    const termIaEbitda = termEbitda * (1 - termCmRevShare);
+    const sotpTV = termCmEbitda * cmExitMult + termIaEbitda * iaExitMult;
+    const blendedExitMult = termEbitda > 0 ? sotpTV / termEbitda : 0;
 
-    // Gordon Growth
-    const gordonTV = termUfcf / (wacc - termGrowth);
+    // Reuse legacy variable names for the rest of the UI (values are now SOTP-based, not Gordon)
+    const gordonTV = sotpTV;
     const pvGordonTV = gordonTV / Math.pow(1 + wacc, years);
     const gordonEV = sumPvFcf + pvGordonTV;
     const totalPvSbc = 0; // SBC handled within EBITDA bridge, no separate deduction
@@ -606,10 +623,11 @@ export default function WealthfrontDCF() {
     return {
       projYears,
       gordonPrice, gordonEV, gordonEquity, gordonTV, pvGordonTV, sumPvFcf, totalPvSbc,
+      blendedExitMult, termCmEbitda, termIaEbitda, termEbitda, termCmRevShare,
       gordonImpliedPE, gordonImpliedEvEbitda,
       upside, moic, impliedIrr, fy30, buybackAccretionPerShare, exitPrice, cumSharesRepurchased, valuation,
     };
-  }, [stockPrice, effr, fy29Effr, wacc, termGrowth, cmYieldBps, cmMix, expansionRate,
+  }, [stockPrice, effr, fy29Effr, wacc, cmExitMult, iaExitMult, cmYieldBps, cmMix, expansionRate,
       termEbitdaMargin, netClientGrowth, avgDeposit, iaReturn, dilution, buybackRate,
       opexExMktg, smEfficiency, grossMargin, taxRate, fcfConversion]);
 
@@ -642,21 +660,19 @@ export default function WealthfrontDCF() {
     }));
   }, [model]);
 
-  // ─── Sensitivity Table ───
+  // ─── Sensitivity Table: CM exit multiple × IA exit multiple ───
+  const cmMultVals = [7, 8, 9, 10, 11];
+  const iaMultVals = [14, 16, 18, 20, 22];
   const sensitivity = useMemo(() => {
-    const waccVals = [0.10, 0.11, 0.12, 0.13, 0.14, 0.15];
-    const tgVals = [0.02, 0.025, 0.03, 0.035, 0.04];
-    return tgVals.map(tg => ({
-      tg,
-      values: waccVals.map(w => {
-        const pvFcfs = model.projYears.map((y, i) => y.ufcf / Math.pow(1 + w, i + 1));
-        const sum = pvFcfs.reduce((a, b) => a + b, 0);
-        const tv = model.projYears[9].ufcf * (1 + tg) / (w - tg);
-        const pvTv = tv / Math.pow(1 + w, 10);
-        return ((sum + pvTv + CURRENT_CASH) / FY26.fdso);
+    return cmMultVals.map(cmM => ({
+      cmM,
+      values: iaMultVals.map(iaM => {
+        const tv = model.termCmEbitda * cmM + model.termIaEbitda * iaM;
+        const pvTv = tv / Math.pow(1 + wacc, 10);
+        return ((model.sumPvFcf + pvTv + CURRENT_CASH) / FY26.fdso);
       })
     }));
-  }, [model]);
+  }, [model, wacc]);
 
   const inputPanel = (
     <div style={{ width: 300, flexShrink: 0, background: C.card, borderRadius: 12, padding: 20, border: `1px solid ${C.border}` }}>
@@ -671,7 +687,8 @@ export default function WealthfrontDCF() {
       <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.01} max={0.12} step={0.005} format="pct" tooltip="Annual net deposit growth from existing clients as a % of beginning AUM. Set to ~4.5% so total FY27 net deposits land near the trailing-12mo normalized ~$5.4B (the seasonally-weak 3-mo window understated it; April tax outflow was seasonal, not structural)." />
       <Slider label="Terminal EBITDA Margin" value={termEbitdaMargin} onChange={setTermEbitdaMargin} min={0.45} max={0.75} step={0.01} format="pct" tooltip="The steady-state Adj. EBITDA margin Wealthfront reaches by FY36. Model linearly interpolates from FY30's computed margin to this target over FY31–FY36." />
       <Slider label="WACC" value={wacc} onChange={setWacc} min={0.08} max={0.18} step={0.005} format="pct" tooltip="Weighted average cost of capital used to discount projected free cash flows back to present value. Higher WACC = lower implied price. 13% reflects a mid-stage fintech with public market liquidity." />
-      <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.01} max={0.05} step={0.005} format="pct" tooltip="Perpetual growth rate applied to terminal year FCF in the Gordon Growth model. Should not exceed long-run nominal GDP growth (~3–4%). Higher = larger terminal value." />
+      <Slider label="CM Exit Multiple" value={cmExitMult} onChange={setCmExitMult} min={5} max={16} step={0.5} format="x" tooltip="EV/EBITDA exit multiple on the terminal Cash Management (spread) EBITDA. Rate-sensitive, bank/neobank-like earnings → lower multiple. ~8–10x is typical for spread-driven businesses." />
+      <Slider label="IA Exit Multiple" value={iaExitMult} onChange={setIaExitMult} min={10} max={30} step={0.5} format="x" tooltip="EV/EBITDA exit multiple on the terminal Investment Advisory (fee) EBITDA. Sticky, recurring, high-retention fee annuity → premium multiple. Wealth platforms ~12–16x; index/data annuities (MSCI, S&P) ~20–30x. As the mix shifts to IA, the blended terminal multiple rises." />
 
       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
       <button onClick={() => setShowSecondary(!showSecondary)}
@@ -714,7 +731,6 @@ export default function WealthfrontDCF() {
     </div>
   );
 
-  const waccVals = [0.10, 0.11, 0.12, 0.13, 0.14, 0.15];
 
   return (
     <div style={{ background: C.bg, color: C.text, minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: 20 }}>
@@ -724,7 +740,7 @@ export default function WealthfrontDCF() {
         <span style={{ background: C.purpleDark, color: C.lavender, padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>WLTH</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 12, color: C.textDim }}>10-Year DCF with Gordon Growth Terminal Value · FY Ends Jan 31</div>
+            <div style={{ fontSize: 12, color: C.textDim }}>10-Year DCF with Sum-of-the-Parts Terminal Value · FY Ends Jan 31</div>
             <div style={{ fontSize: 10, color: C.textDim, fontStyle: "italic", marginTop: 2 }}>Independent analysis, not affiliated with Wealthfront.</div>
           </div>
           <button onClick={handleShare}
@@ -741,7 +757,7 @@ export default function WealthfrontDCF() {
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* KPI Row */}
           <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-            <KPICard title="DCF Implied Price" value={fmtDollar(model.gordonPrice)} subtitle="Gordon Growth method" color={model.gordonPrice > stockPrice ? C.green : C.red} />
+            <KPICard title="DCF Implied Price" value={fmtDollar(model.gordonPrice)} subtitle={`SOTP exit · ${fmtX(model.blendedExitMult)} blended`} color={model.gordonPrice > stockPrice ? C.green : C.red} />
             <KPICard title="Upside / Downside" value={`${model.upside >= 0 ? "+" : ""}${(model.upside * 100).toFixed(0)}%`} subtitle={`vs ${fmtDollar(stockPrice)} entry`} color={model.upside >= 0 ? C.green : C.red} />
             <KPICard title="Exit P/E (Ex-Cash)" value={model.gordonImpliedPE > 0 ? fmtX(model.gordonImpliedPE) : "N/M"} subtitle="DCF-implied on FY30E" color={C.lavender} />
             <KPICard title="Exit EV/EBITDA" value={fmtX(model.gordonImpliedEvEbitda)} subtitle="DCF-implied on FY30E" color={C.lavender} />
@@ -974,29 +990,29 @@ export default function WealthfrontDCF() {
               })}
             </div>
             <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", marginTop: 8 }}>
-              Terminal Value = {fmtPct(model.pvGordonTV / model.gordonEV)} of Enterprise Value
+              Terminal Value = {fmtPct(model.pvGordonTV / model.gordonEV)} of EV · SOTP exit: CM {fmtM(model.termCmEbitda)} EBITDA × {fmtX(cmExitMult, 0)} + IA {fmtM(model.termIaEbitda)} EBITDA × {fmtX(iaExitMult, 0)} → {fmtX(model.blendedExitMult)} blended
             </div>
           </div>
 
           {/* Sensitivity Table */}
           <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>WACC vs Terminal Growth Sensitivity (Implied Price)</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>CM vs IA Exit Multiple Sensitivity (Implied Price)</div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: "6px 8px", color: C.textDim, textAlign: "left", fontSize: 10 }}>TG ↓ / WACC →</th>
-                    {waccVals.map(w => (
-                      <th key={w} style={{ padding: "6px 8px", color: w === wacc ? C.lavender : C.textDim, textAlign: "center", fontSize: 10, fontWeight: w === wacc ? 700 : 400 }}>{fmtPct(w, 0)}</th>
+                    <th style={{ padding: "6px 8px", color: C.textDim, textAlign: "left", fontSize: 10 }}>CM mult ↓ / IA mult →</th>
+                    {iaMultVals.map(iaM => (
+                      <th key={iaM} style={{ padding: "6px 8px", color: iaM === iaExitMult ? C.lavender : C.textDim, textAlign: "center", fontSize: 10, fontWeight: iaM === iaExitMult ? 700 : 400 }}>{fmtX(iaM, 0)}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {sensitivity.map((row, ri) => (
                     <tr key={ri}>
-                      <td style={{ padding: "5px 8px", color: row.tg === termGrowth ? C.lavender : C.textDim, fontWeight: row.tg === termGrowth ? 700 : 400, fontSize: 11 }}>{fmtPct(row.tg, 1)}</td>
+                      <td style={{ padding: "5px 8px", color: row.cmM === cmExitMult ? C.lavender : C.textDim, fontWeight: row.cmM === cmExitMult ? 700 : 400, fontSize: 11 }}>{fmtX(row.cmM, 0)}</td>
                       {row.values.map((v, ci) => {
-                        const isBase = waccVals[ci] === wacc && row.tg === termGrowth;
+                        const isBase = iaMultVals[ci] === iaExitMult && row.cmM === cmExitMult;
                         const isAbove = v > stockPrice;
                         return (
                           <td key={ci} style={{
