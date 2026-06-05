@@ -195,24 +195,24 @@ const PARAM_MAP = {
 // ─── Interest Rate Scenario Presets (recalibrated to Q1 FY27 actuals — Jun 2026) ───
 const SCENARIOS = {
   falling: {
-    label: "Falling", effr: 3.64, fy29Effr: 2.0, cmYieldBps: 52, cmMix: 0.15,
-    expansionRate: 0.018, netClientGrowth: 0.008, avgDeposit: 6, iaReturn: 0.04,
+    label: "Falling", effr: 3.64, fy29Effr: 2.0, cmYieldBps: 52, cmMix: 0.25,
+    expansionRate: 0.03, netClientGrowth: 0.008, avgDeposit: 6, iaReturn: 0.04,
     termEbitdaMargin: 0.50, wacc: 0.13, termGrowth: 0.03,
-    opexExMktg: 0.52, smEfficiency: 75, grossMargin: 0.90, taxRate: 0.21,
+    opexExMktg: 0.52, smEfficiency: 100, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.80, dilution: 0.01, buybackRate: 0.50,
   },
   flat: {
-    label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.20,
-    expansionRate: 0.025, netClientGrowth: 0.01, avgDeposit: 7, iaReturn: 0.07,
+    label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.35,
+    expansionRate: 0.045, netClientGrowth: 0.01, avgDeposit: 7, iaReturn: 0.07,
     termEbitdaMargin: 0.55, wacc: 0.13, termGrowth: 0.03,
-    opexExMktg: 0.50, smEfficiency: 80, grossMargin: 0.90, taxRate: 0.21,
+    opexExMktg: 0.50, smEfficiency: 120, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, buybackRate: 0.50,
   },
   rising: {
-    label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 62, cmMix: 0.28,
-    expansionRate: 0.04, netClientGrowth: 0.015, avgDeposit: 10, iaReturn: 0.09,
+    label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 62, cmMix: 0.45,
+    expansionRate: 0.06, netClientGrowth: 0.015, avgDeposit: 10, iaReturn: 0.09,
     termEbitdaMargin: 0.58, wacc: 0.13, termGrowth: 0.03,
-    opexExMktg: 0.47, smEfficiency: 90, grossMargin: 0.90, taxRate: 0.21,
+    opexExMktg: 0.47, smEfficiency: 140, grossMargin: 0.90, taxRate: 0.21,
     fcfConversion: 0.85, dilution: 0.01, buybackRate: 0.50,
   },
 };
@@ -226,8 +226,8 @@ export default function WealthfrontDCF() {
   const [wacc, setWacc] = useState(() => getHashParam("w", 0.13));
   const [termGrowth, setTermGrowth] = useState(() => getHashParam("tg", 0.03));
   const [cmYieldBps, setCmYieldBps] = useState(() => getHashParam("cm", 58));
-  const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.20));
-  const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.025));
+  const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.35));
+  const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.045));
   const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.55));
 
   // Secondary inputs — initialized from URL hash if present
@@ -239,7 +239,7 @@ export default function WealthfrontDCF() {
   const [dilution, setDilution] = useState(() => getHashParam("dil", 0.01));
   const [buybackRate, setBuybackRate] = useState(() => getHashParam("bb", 0.50));
   const [opexExMktg, setOpexExMktg] = useState(() => getHashParam("opex", 0.50));
-  const [smEfficiency, setSmEfficiency] = useState(() => getHashParam("sm", 80));
+  const [smEfficiency, setSmEfficiency] = useState(() => getHashParam("sm", 120));
   const [grossMargin, setGrossMargin] = useState(() => getHashParam("gm", 0.90));
   const [taxRate, setTaxRate] = useState(() => getHashParam("tax", 0.21));
   const [fcfConversion, setFcfConversion] = useState(() => getHashParam("fcf", 0.85));
@@ -667,8 +667,8 @@ export default function WealthfrontDCF() {
       <div style={{ fontSize: 11, color: C.textMuted, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, marginBottom: 16 }}>Primary Assumptions</div>
       <Slider label="FY29 EFFR Target" value={fy29Effr} onChange={setFy29Effr} min={1.0} max={6.0} step={0.1} format="number" suffix="%" tooltip="Effective Federal Funds Rate — the Fed's benchmark overnight rate. Drives cash management yields and EFFR glide path from current rate to this target by FY29." />
       <Slider label="CM Yield on Avg Assets" value={cmYieldBps} onChange={setCmYieldBps} min={20} max={100} step={1} format="number" suffix=" bps" tooltip="The spread in basis points that Wealthfront earns on Cash Management assets. This is the difference between the yield clients earn and the yield Wealthfront earns on cash." />
-      <Slider label="CM Deposit Mix" value={cmMix} onChange={setCmMix} min={0.10} max={0.65} step={0.01} format="pct" tooltip="Percentage of total client net deposits allocated to Cash Management (with the remaining in Investment Advisory). Higher mix = more deposits into higher margin Cash Management product." />
-      <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.01} max={0.12} step={0.005} format="pct" tooltip="Annual net deposit growth from existing clients as a % of beginning AUM. Set to ~2.5% to fit the post-FY26 deposit deceleration (FY26 $6.7B → Q1 FY27 ~$2.9B run-rate); the April tax-season CM outflow was seasonal, not structural." />
+      <Slider label="CM Deposit Mix" value={cmMix} onChange={setCmMix} min={0.10} max={0.65} step={0.01} format="pct" tooltip="Share of net deposits going to Cash Management (rest to Investment Advisory). Higher mix = more flow into the higher-fee (58bps vs 21bps) CM product. Set to 35% — above the trailing-12mo actual (~20%) — assuming the cash-to-invest drain is cyclical and CM share partly reverts." />
+      <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.01} max={0.12} step={0.005} format="pct" tooltip="Annual net deposit growth from existing clients as a % of beginning AUM. Set to ~4.5% so total FY27 net deposits land near the trailing-12mo normalized ~$5.4B (the seasonally-weak 3-mo window understated it; April tax outflow was seasonal, not structural)." />
       <Slider label="Terminal EBITDA Margin" value={termEbitdaMargin} onChange={setTermEbitdaMargin} min={0.45} max={0.75} step={0.01} format="pct" tooltip="The steady-state Adj. EBITDA margin Wealthfront reaches by FY36. Model linearly interpolates from FY30's computed margin to this target over FY31–FY36." />
       <Slider label="WACC" value={wacc} onChange={setWacc} min={0.08} max={0.18} step={0.005} format="pct" tooltip="Weighted average cost of capital used to discount projected free cash flows back to present value. Higher WACC = lower implied price. 13% reflects a mid-stage fintech with public market liquidity." />
       <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.01} max={0.05} step={0.005} format="pct" tooltip="Perpetual growth rate applied to terminal year FCF in the Gordon Growth model. Should not exceed long-run nominal GDP growth (~3–4%). Higher = larger terminal value." />
@@ -687,7 +687,7 @@ export default function WealthfrontDCF() {
           <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" tooltip="Annual gross increase in fully diluted shares from stock-based compensation, before buybacks. 1% = ~1.75M new shares/year at current FDSO of 175.5M. Net share count = dilution less buybacks." />
           <Slider label="Buyback (% of FCF)" value={buybackRate} onChange={setBuybackRate} min={0} max={1.0} step={0.05} format="pct" tooltip="Share of unlevered FCF deployed to repurchase stock at the current price each year (vs. dividends). Reduces net share count and builds per-share value. Wealthfront authorized a $100M buyback in Mar 2026 and repurchased $27M (3.1M shares @ $8.66) in Q1 FY27 — its capital-return method of choice." />
           <Slider label="OpEx ex-Mktg FY27 (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.65} step={0.01} format="pct" tooltip="Non-marketing operating expenses (R&D, G&A) as a % of revenue in FY27. Set to ~50% so total adj. opex (incl. marketing) lands near the actual ~60% of revenue and FY27 EBITDA margin ≈ 42% (Q1 FY27 printed 41%). Declines 1pp/year for operating leverage." />
-          <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="" tooltip="Sales & Marketing efficiency — net new deposits ($M) generated per $1M of S&M spend. Higher = more efficient. FY26A was ~$125; set to ~$80 for the forward as acquisition got costlier (competition + the cross-product incentive), matching Q1 FY27's ~$45M annualized marketing on ~$3.5B deposits." />
+          <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="" tooltip="Sales & Marketing efficiency — net new deposits ($M) generated per $1M of S&M spend. Higher = more efficient. Set to ~$120 so marketing stays near the actual ~$45M run-rate on the normalized ~$5.4B of deposits (FY26A was ~$125). S&M scales with deposit volume, so this keeps the margin bridge coherent." />
           <Slider label="Gross Margin" value={grossMargin} onChange={setGrossMargin} min={0.80} max={0.95} step={0.01} format="pct" tooltip="Revenue less cost of revenue (fund expenses, payment processing, data costs) as a percentage of revenue. Wealthfront's FY26A gross margin was ~90%." />
           <Slider label="Effective Tax Rate" value={taxRate} onChange={setTaxRate} min={0.15} max={0.30} step={0.01} format="pct" tooltip="Blended federal + state tax rate applied to pre-tax income. 21% = federal statutory rate. Actual rate may differ due to NOLs, state taxes, and R&D credits." />
           <Slider label="FCF Conversion %" value={fcfConversion} onChange={setFcfConversion} min={0.65} max={0.95} step={0.01} format="pct" tooltip="Percentage of Adj. EBITDA converted to unlevered free cash flow after capex and working capital changes. Higher = more cash-generative business." />

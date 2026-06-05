@@ -21,15 +21,15 @@ const MONTHLY = [
   { month: "Feb '25", platform: 81251, cm: 43281, ia: 37970, deposits: 1090, clients: 1229, newClients: 17, cmDep: null, iaDep: null },
   { month: "Mar '25", platform: 81355, cm: 44311, ia: 37044, deposits: 1203, clients: 1246, newClients: 17, cmDep: 1030, iaDep: 173 },
   { month: "Apr '25", platform: 80858, cm: 43774, ia: 37085, deposits: -503, clients: 1264, newClients: 18, cmDep: null, iaDep: null },
-  { month: "May '25", platform: 83904, cm: 44935, ia: 38969, deposits: 1412, clients: 1279, newClients: 15, cmDep: null, iaDep: null },
-  { month: "Jun '25", platform: 86483, cm: 45706, ia: 40777, deposits: 1004, clients: 1295, newClients: 16, cmDep: null, iaDep: null },
-  { month: "Jul '25", platform: 88175, cm: 46579, ia: 41596, deposits: 1246, clients: 1318, newClients: 23, cmDep: null, iaDep: null },
-  { month: "Aug '25", platform: 90192, cm: 47243, ia: 42949, deposits: 1006, clients: 1342, newClients: 24, cmDep: null, iaDep: null },
-  { month: "Sep '25", platform: 92025, cm: 47381, ia: 44644, deposits: 513,  clients: 1364, newClients: 22, cmDep: null, iaDep: null },
-  { month: "Oct '25", platform: 92821, cm: 47011, ia: 45811, deposits: 49,   clients: 1378, newClients: 14, cmDep: null, iaDep: null },
-  { month: "Nov '25", platform: 93010, cm: 46802, ia: 46208, deposits: 95,   clients: 1390, newClients: 12, cmDep: null, iaDep: null },
-  { month: "Dec '25", platform: 93040, cm: 46200, ia: 46840, deposits: -208, clients: 1402, newClients: 12, cmDep: null, iaDep: null },
-  { month: "Jan '26", platform: 94106, cm: 45361, ia: 48745, deposits: -247, clients: 1417, newClients: 15, cmDep: null, iaDep: null },
+  { month: "May '25", platform: 83904, cm: 44935, ia: 38969, deposits: 1412, clients: 1279, newClients: 15, cmDep: 1162, iaDep: 250 },
+  { month: "Jun '25", platform: 86483, cm: 45706, ia: 40777, deposits: 1004, clients: 1295, newClients: 16, cmDep: 771,  iaDep: 234 },
+  { month: "Jul '25", platform: 88175, cm: 46579, ia: 41596, deposits: 1246, clients: 1318, newClients: 23, cmDep: 873,  iaDep: 373 },
+  { month: "Aug '25", platform: 90192, cm: 47243, ia: 42949, deposits: 1006, clients: 1342, newClients: 24, cmDep: 664,  iaDep: 342 },
+  { month: "Sep '25", platform: 92025, cm: 47381, ia: 44644, deposits: 513,  clients: 1364, newClients: 22, cmDep: 138,  iaDep: 375 },
+  { month: "Oct '25", platform: 92821, cm: 47011, ia: 45811, deposits: 49,   clients: 1378, newClients: 14, cmDep: -370, iaDep: 419 },
+  { month: "Nov '25", platform: 93010, cm: 46802, ia: 46208, deposits: 95,   clients: 1390, newClients: 12, cmDep: -209, iaDep: 304 },
+  { month: "Dec '25", platform: 93040, cm: 46200, ia: 46840, deposits: -208, clients: 1402, newClients: 12, cmDep: -602, iaDep: 393 },
+  { month: "Jan '26", platform: 94106, cm: 45361, ia: 48745, deposits: -247, clients: 1417, newClients: 15, cmDep: -839, iaDep: 592 },
   { month: "Feb '26", platform: 95213, cm: 45215, ia: 49998, deposits: 271,  clients: 1429, newClients: 12, cmDep: -145, iaDep: 416 },
   { month: "Mar '26", platform: 93187, cm: 45459, ia: 47728, deposits: 596,  clients: 1443, newClients: 14, cmDep: 244, iaDep: 352 },
   { month: "Apr '26", platform: 96600, cm: 44883, ia: 51718, deposits: -313, clients: 1458, newClients: 15, cmDep: -577, iaDep: 263 },
@@ -44,6 +44,22 @@ export default function WealthfrontMonthly() {
   const recent3 = MONTHLY.slice(-3);
   const avg3mo = recent3.reduce((s, m) => s + m.deposits, 0) / 3;
   const annualized = avg3mo * 12;
+
+  // Net-deposit chart data + CM-share lines (monthly + trailing-12-month TTM)
+  const depositChartData = MONTHLY.slice(1).map((m, idx) => {
+    const i = idx + 1; // index within full MONTHLY array
+    // Monthly CM % of net deposits — only for clearly positive deposit months (ratio is noise near zero/negative totals)
+    const monthlyCmPct = (m.cmDep != null && m.deposits > 200) ? +((m.cmDep / m.deposits) * 100).toFixed(1) : null;
+    // Trailing-12-month CM % — sum of CM net deposits / total net deposits over available split months (needs >= 6)
+    let cmSum = 0, totSum = 0, n = 0;
+    for (let j = i; j >= 0 && i - j < 12; j--) {
+      if (MONTHLY[j].cmDep != null) { cmSum += MONTHLY[j].cmDep; totSum += MONTHLY[j].deposits; n++; }
+    }
+    const ttmCmPct = (n >= 6 && totSum !== 0) ? +((cmSum / totSum) * 100).toFixed(1) : null;
+    return m.cmDep !== null
+      ? { month: m.month, cmDep: m.cmDep, iaDep: m.iaDep, deposits: null, monthlyCmPct, ttmCmPct }
+      : { month: m.month, cmDep: null, iaDep: null, deposits: m.deposits, monthlyCmPct, ttmCmPct };
+  });
 
   return (
     <div style={{
@@ -110,18 +126,17 @@ export default function WealthfrontMonthly() {
         {/* Chart 2: Monthly Net Deposits — total bars + CM/IA split */}
         <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Net Deposits ($M) — CM vs IA Split</div>
-          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Solid bar = total · Stacked CM/IA where reported (recent months)</div>
+          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Bars = net deposits ($M, left) · Lines = CM share of net deposits (right): solid = trailing-12mo, dashed = monthly</div>
           <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={MONTHLY.slice(1).map(m => m.cmDep !== null
-              ? { month: m.month, cmDep: m.cmDep, iaDep: m.iaDep, deposits: null }
-              : { month: m.month, cmDep: null, iaDep: null, deposits: m.deposits }
-            )} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+            <ComposedChart data={depositChartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
               <XAxis dataKey="month" tick={{ fontSize: 9, fill: C.textDim }} interval={1} />
               <YAxis tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => v.toLocaleString()} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: C.textDim }} tickFormatter={v => `${v}%`} domain={[-60, 100]} />
               <Tooltip content={({ active, payload, label }) => {
                 if (!active || !payload || !payload.length) return null;
                 const d = MONTHLY.find(m => m.month === label);
+                const c = depositChartData.find(x => x.month === label);
                 if (!d) return null;
                 return (
                   <div style={{ background: C.cardAlt, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px", fontSize: 11, color: C.text }}>
@@ -133,6 +148,8 @@ export default function WealthfrontMonthly() {
                         <div style={{ color: C.purpleLight }}>IA: {fmtM(d.iaDep)}</div>
                       </>
                     )}
+                    {c && c.ttmCmPct != null && <div style={{ color: C.amber, marginTop: 2 }}>CM % (TTM): {c.ttmCmPct}%</div>}
+                    {c && c.monthlyCmPct != null && <div style={{ color: C.lavender }}>CM % (month): {c.monthlyCmPct}%</div>}
                   </div>
                 );
               }} />
@@ -143,6 +160,9 @@ export default function WealthfrontMonthly() {
               <Bar dataKey="iaDep" name="IA Deposits" stackId="split" fill={C.purpleLight} fillOpacity={0.9} radius={[2, 2, 0, 0]} />
               {/* Zero reference line */}
               <Line dataKey={() => 0} stroke={C.textDim} strokeWidth={1} dot={false} strokeDasharray="3 3" activeDot={false} legendType="none" />
+              {/* CM share of net deposits — trailing-12mo (solid) and monthly (dashed), right axis */}
+              <Line yAxisId="right" dataKey="ttmCmPct" name="CM % (TTM)" stroke={C.amber} strokeWidth={2.5} dot={false} connectNulls />
+              <Line yAxisId="right" dataKey="monthlyCmPct" name="CM % (monthly)" stroke={C.lavender} strokeWidth={1.5} strokeDasharray="4 3" dot={{ r: 2, fill: C.lavender }} connectNulls={false} />
             </ComposedChart>
           </ResponsiveContainer>
 
