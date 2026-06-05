@@ -13,7 +13,7 @@ const C = {
   border: "#2D2548", borderLight: "#3D3360",
 };
 
-// Monthly metrics — trailing 16 months through March 2026
+// Monthly metrics — trailing 18 months through May 2026
 // cmDep/iaDep: CM/IA deposit splits where reported in monthly metrics releases
 const MONTHLY = [
   { month: "Dec '24", platform: 78487, cm: 42088, ia: 36400, deposits: 874,  clients: 1189, newClients: null, cmDep: null, iaDep: null },
@@ -32,6 +32,8 @@ const MONTHLY = [
   { month: "Jan '26", platform: 94106, cm: 45361, ia: 48745, deposits: -247, clients: 1417, newClients: 15, cmDep: null, iaDep: null },
   { month: "Feb '26", platform: 95213, cm: 45215, ia: 49998, deposits: 271,  clients: 1429, newClients: 12, cmDep: -145, iaDep: 416 },
   { month: "Mar '26", platform: 93187, cm: 45459, ia: 47728, deposits: 596,  clients: 1443, newClients: 14, cmDep: 244, iaDep: 352 },
+  { month: "Apr '26", platform: 96600, cm: 44883, ia: 51718, deposits: -313, clients: 1458, newClients: 15, cmDep: -577, iaDep: 263 },
+  { month: "May '26", platform: 98961, cm: 44987, ia: 53974, deposits: 447,  clients: 1473, newClients: 15, cmDep: 104, iaDep: 342 },
 ];
 
 const fmtM = (v) => `$${v.toLocaleString()}M`;
@@ -108,7 +110,7 @@ export default function WealthfrontMonthly() {
         {/* Chart 2: Monthly Net Deposits — total bars + CM/IA split */}
         <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Net Deposits ($M) — CM vs IA Split</div>
-          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Solid bar = total · Stacked CM/IA where reported (Mar '25, Feb '26, Mar '26)</div>
+          <div style={{ fontSize: 10, color: C.textDim, marginBottom: 12 }}>Solid bar = total · Stacked CM/IA where reported (recent months)</div>
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={MONTHLY.slice(1).map(m => m.cmDep !== null
               ? { month: m.month, cmDep: m.cmDep, iaDep: m.iaDep, deposits: null }
@@ -147,27 +149,27 @@ export default function WealthfrontMonthly() {
           {/* Deposit summary cards */}
           <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>3-Mo Avg (Jan–Mar '26)</div>
+              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>3-Mo Avg (Mar–May '26)</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>${avg3mo.toFixed(0)}M<span style={{ fontSize: 11, color: C.textDim, fontWeight: 400 }}>/mo</span></div>
               <div style={{ fontSize: 10, color: C.textMuted }}>Annualized: <span style={{ color: C.accent, fontWeight: 700 }}>${(annualized / 1000).toFixed(1)}B</span></div>
             </div>
             <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>Deposit Composition (Mar '26)</div>
+              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>Deposit Composition (May '26)</div>
               <div style={{ fontSize: 12, color: C.text, marginTop: 4 }}>
-                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$244M</span> <span style={{ color: C.textMuted }}>CM</span>
+                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$104M</span> <span style={{ color: C.textMuted }}>CM</span>
                 {" + "}
-                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$352M</span> <span style={{ color: C.textMuted }}>IA</span>
+                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$342M</span> <span style={{ color: C.textMuted }}>IA</span>
                 {" = "}
-                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$596M</span>
+                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$447M</span>
               </div>
-              <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>CM mix: 40.9% · IA mix: 59.1%</div>
+              <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>CM mix: 23.3% · IA mix: 76.7%</div>
             </div>
             <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>YoY (Mar '26 vs Mar '25)</div>
+              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>Net Deposits (Q1 FY27 vs Q1 FY26)</div>
               <div style={{ fontSize: 12, color: C.text, marginTop: 4 }}>
-                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$596M</span> <span style={{ color: C.textMuted }}>vs</span> <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$1,203M</span>
+                <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$554M</span> <span style={{ color: C.textMuted }}>vs</span> <span style={{ fontWeight: 700, fontFamily: "monospace" }}>$1,790M</span>
               </div>
-              <div style={{ fontSize: 10, color: C.red, marginTop: 2 }}>-50.5% YoY · CM down from $1,030M to $244M</div>
+              <div style={{ fontSize: 10, color: C.red, marginTop: 2 }}>-69% YoY · CM swung to -$477M from +$1,363M</div>
             </div>
           </div>
         </div>
@@ -211,13 +213,13 @@ export default function WealthfrontMonthly() {
           <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>Total Funded Clients</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>1.443M</div>
-              <div style={{ fontSize: 10, color: C.green }}>+15.8% YoY (vs 1.246M Mar '25)</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>1.473M</div>
+              <div style={{ fontSize: 10, color: C.green }}>+15.2% YoY (vs 1.279M May '25)</div>
             </div>
             <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>Net New (Mar '26)</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>+14K</div>
-              <div style={{ fontSize: 10, color: C.textMuted }}>Annualized: ~168K · FY26 total: 205K</div>
+              <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>Net New (May '26)</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>+15K</div>
+              <div style={{ fontSize: 10, color: C.textMuted }}>Annualized: ~180K · FY26 total: 205K</div>
             </div>
             <div style={{ flex: "1 1 200px", padding: "10px 14px", background: C.cardAlt, borderRadius: 8, border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>3-Mo Avg Net New</div>

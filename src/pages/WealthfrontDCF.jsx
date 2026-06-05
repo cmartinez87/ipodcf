@@ -14,21 +14,26 @@ const C = {
   gradient1: "#4B2AAD", gradient2: "#7C5CDB",
 };
 
-// ─── FY26 Actuals (from v7 model) ───
+// ─── FY26 Actuals (Q4 & FY2026 earnings, reported Mar 11, 2026; FYE Jan 31, 2026) ───
 const FY26 = {
-  platformAssets: 94089, cmAssets: 45361, iaAssets: 48728,
+  platformAssets: 94106, cmAssets: 45361, iaAssets: 48745,
   revenue: 365.0, cmRevenue: 271.7, iaRevenue: 91.9,
-  adjEbitda: 170.4, netIncome: -42.1, cash: 440.8,
-  fdso: 187.08, fundedClients: 1417, // thousands
+  adjEbitda: 170.7, netIncome: -42.1, cash: 440.8,
+  fdso: 175.5, fundedClients: 1417, // FDSO = Q1 FY27 diluted weighted-avg shares (10-Q); thousands for clients
   grossMargin: 0.896, cmYield: 0.00619, iaYield: 0.002125,
   sbc: 259.8, da: 7.4, interest: 0.891, otherIncome: 10.813,
   netDeposits: 6659, expansionRate: 0.035, cmMix: 0.204,
 };
 
+// Current balance-sheet cash anchor — Q1 FY27 (as of Apr 30, 2026), per 10-Q.
+// Used for the valuation bridge and projection starting balance; FY26A column keeps the
+// historical Jan 31, 2026 cash of $440.8M.
+const CURRENT_CASH = 428.2;
+
 const HIST = {
   FY24: { revenue: 216.7, ebitda: 98.6, assets: 57601, cm: 29361, ia: 28240, clients: 854 },
-  FY25: { revenue: 309.0, ebitda: 142.8, assets: 80175, cm: 42411, ia: 37764, clients: 1212 },
-  FY26: { revenue: 365.0, ebitda: 170.4, assets: 94089, cm: 45361, ia: 48728, clients: 1417 },
+  FY25: { revenue: 308.9, ebitda: 142.7, assets: 80175, cm: 42411, ia: 37764, clients: 1212 },
+  FY26: { revenue: 365.0, ebitda: 170.7, assets: 94106, cm: 45361, ia: 48745, clients: 1417 },
 };
 
 // ─── Helpers ───
@@ -183,58 +188,58 @@ function getHashParam(key, fallback) {
 const PARAM_MAP = {
   sp: "stockPrice", effr: "effr", fy29: "fy29Effr", w: "wacc", tg: "termGrowth",
   cm: "cmYieldBps", mix: "cmMix", exp: "expansionRate", tm: "termEbitdaMargin",
-  ncg: "netClientGrowth", avgd: "avgDeposit", ia: "iaReturn", dil: "dilution", pay: "payoutRate",
+  ncg: "netClientGrowth", avgd: "avgDeposit", ia: "iaReturn", dil: "dilution", bb: "buybackRate",
   opex: "opexExMktg", sm: "smEfficiency", gm: "grossMargin", tax: "taxRate", fcf: "fcfConversion",
 };
 
-// ─── Interest Rate Scenario Presets (from v9 Excel model) ───
+// ─── Interest Rate Scenario Presets (recalibrated to Q1 FY27 actuals — Jun 2026) ───
 const SCENARIOS = {
   falling: {
-    label: "Falling", effr: 3.64, fy29Effr: 2.0, cmYieldBps: 45, cmMix: 0.22,
-    expansionRate: 0.035, netClientGrowth: 0.008, avgDeposit: 15, iaReturn: 0.04,
-    termEbitdaMargin: 0.55, wacc: 0.13, termGrowth: 0.03,
-    opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
-    fcfConversion: 0.80, dilution: 0.01, payoutRate: 0.50,
+    label: "Falling", effr: 3.64, fy29Effr: 2.0, cmYieldBps: 52, cmMix: 0.15,
+    expansionRate: 0.018, netClientGrowth: 0.008, avgDeposit: 6, iaReturn: 0.04,
+    termEbitdaMargin: 0.50, wacc: 0.13, termGrowth: 0.03,
+    opexExMktg: 0.52, smEfficiency: 75, grossMargin: 0.90, taxRate: 0.21,
+    fcfConversion: 0.80, dilution: 0.01, buybackRate: 0.50,
   },
   flat: {
-    label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 66, cmMix: 0.40,
-    expansionRate: 0.06, netClientGrowth: 0.01, avgDeposit: 20, iaReturn: 0.07,
-    termEbitdaMargin: 0.60, wacc: 0.13, termGrowth: 0.03,
-    opexExMktg: 0.35, smEfficiency: 125, grossMargin: 0.90, taxRate: 0.21,
-    fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
+    label: "Flat", effr: 3.64, fy29Effr: 3.60, cmYieldBps: 58, cmMix: 0.20,
+    expansionRate: 0.025, netClientGrowth: 0.01, avgDeposit: 7, iaReturn: 0.07,
+    termEbitdaMargin: 0.55, wacc: 0.13, termGrowth: 0.03,
+    opexExMktg: 0.50, smEfficiency: 80, grossMargin: 0.90, taxRate: 0.21,
+    fcfConversion: 0.85, dilution: 0.01, buybackRate: 0.50,
   },
   rising: {
-    label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 72, cmMix: 0.52,
-    expansionRate: 0.09, netClientGrowth: 0.015, avgDeposit: 30, iaReturn: 0.09,
-    termEbitdaMargin: 0.65, wacc: 0.13, termGrowth: 0.03,
-    opexExMktg: 0.35, smEfficiency: 200, grossMargin: 0.90, taxRate: 0.21,
-    fcfConversion: 0.85, dilution: 0.01, payoutRate: 0.50,
+    label: "Rising", effr: 3.64, fy29Effr: 5.0, cmYieldBps: 62, cmMix: 0.28,
+    expansionRate: 0.04, netClientGrowth: 0.015, avgDeposit: 10, iaReturn: 0.09,
+    termEbitdaMargin: 0.58, wacc: 0.13, termGrowth: 0.03,
+    opexExMktg: 0.47, smEfficiency: 90, grossMargin: 0.90, taxRate: 0.21,
+    fcfConversion: 0.85, dilution: 0.01, buybackRate: 0.50,
   },
 };
 
 // ─── Main Component ───
 export default function WealthfrontDCF() {
   // Primary inputs — initialized from URL hash if present
-  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 9.57));
+  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 10.50));
   const [effr, setEffr] = useState(() => getHashParam("effr", 3.64));
   const [fy29Effr, setFy29Effr] = useState(() => getHashParam("fy29", 3.60));
   const [wacc, setWacc] = useState(() => getHashParam("w", 0.13));
   const [termGrowth, setTermGrowth] = useState(() => getHashParam("tg", 0.03));
-  const [cmYieldBps, setCmYieldBps] = useState(() => getHashParam("cm", 66));
-  const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.40));
-  const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.055));
-  const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.60));
+  const [cmYieldBps, setCmYieldBps] = useState(() => getHashParam("cm", 58));
+  const [cmMix, setCmMix] = useState(() => getHashParam("mix", 0.20));
+  const [expansionRate, setExpansionRate] = useState(() => getHashParam("exp", 0.025));
+  const [termEbitdaMargin, setTermEbitdaMargin] = useState(() => getHashParam("tm", 0.55));
 
   // Secondary inputs — initialized from URL hash if present
   const hasHashParams = window.location.hash.length > 1;
   const [showSecondary, setShowSecondary] = useState(false);
   const [netClientGrowth, setNetClientGrowth] = useState(() => getHashParam("ncg", 0.01));
-  const [avgDeposit, setAvgDeposit] = useState(() => getHashParam("avgd", 20));
+  const [avgDeposit, setAvgDeposit] = useState(() => getHashParam("avgd", 7));
   const [iaReturn, setIaReturn] = useState(() => getHashParam("ia", 0.07));
   const [dilution, setDilution] = useState(() => getHashParam("dil", 0.01));
-  const [payoutRate, setPayoutRate] = useState(() => getHashParam("pay", 0.50));
-  const [opexExMktg, setOpexExMktg] = useState(() => getHashParam("opex", 0.35));
-  const [smEfficiency, setSmEfficiency] = useState(() => getHashParam("sm", 125));
+  const [buybackRate, setBuybackRate] = useState(() => getHashParam("bb", 0.50));
+  const [opexExMktg, setOpexExMktg] = useState(() => getHashParam("opex", 0.50));
+  const [smEfficiency, setSmEfficiency] = useState(() => getHashParam("sm", 80));
   const [grossMargin, setGrossMargin] = useState(() => getHashParam("gm", 0.90));
   const [taxRate, setTaxRate] = useState(() => getHashParam("tax", 0.21));
   const [fcfConversion, setFcfConversion] = useState(() => getHashParam("fcf", 0.85));
@@ -253,14 +258,14 @@ export default function WealthfrontDCF() {
     setTermGrowth(s.termGrowth); setOpexExMktg(s.opexExMktg);
     setSmEfficiency(s.smEfficiency); setGrossMargin(s.grossMargin);
     setTaxRate(s.taxRate); setFcfConversion(s.fcfConversion);
-    setDilution(s.dilution); setPayoutRate(s.payoutRate);
+    setDilution(s.dilution); setBuybackRate(s.buybackRate);
   };
 
   const handleShare = () => {
     const params = new URLSearchParams({
       sp: stockPrice, effr, fy29: fy29Effr, w: wacc, tg: termGrowth,
       cm: cmYieldBps, mix: cmMix, exp: expansionRate, tm: termEbitdaMargin,
-      ncg: netClientGrowth, avgd: avgDeposit, ia: iaReturn, dil: dilution, pay: payoutRate,
+      ncg: netClientGrowth, avgd: avgDeposit, ia: iaReturn, dil: dilution, bb: buybackRate,
       opex: opexExMktg, sm: smEfficiency, gm: grossMargin, tax: taxRate, fcf: fcfConversion,
     });
     const url = `${window.location.origin}${window.location.pathname}#${params}`;
@@ -330,7 +335,7 @@ export default function WealthfrontDCF() {
     let totalAssets = cmAssets + iaAssets;
     let clients = FY26.fundedClients;
     let fdso = FY26.fdso;
-    let cash = FY26.cash;
+    let cash = CURRENT_CASH;
     let prevRevenue = FY26.revenue;
     let prevClients = FY26.fundedClients;
     let sbc = 20; // normalized post-IPO
@@ -343,7 +348,7 @@ export default function WealthfrontDCF() {
         // ─── Bottom-up projection (FY27-FY30) ───
 
         // CM mix: gradually moves from input toward stabilized
-        const curCmMix = cmMix * (1 - i * 0.02);
+        const curCmMix = cmMix * (1 - i * 0.05);
         const iaMix = 1 - Math.max(curCmMix, 0.15);
         const actualCmMix = 1 - iaMix;
 
@@ -406,11 +411,8 @@ export default function WealthfrontDCF() {
         const tax = Math.max(0, preTax * taxRate);
         const netIncome = preTax - tax;
 
-        // FDSO with dilution
+        // FDSO: gross-up for SBC dilution (buyback applied below)
         fdso = fdso * (1 + dilution);
-
-        // EPS
-        const eps = netIncome / fdso;
 
         // D&A and SBC (SBC scales with dilution: base 1% → ~$20M yr1)
         const da = 7.4 * Math.pow(1.10, i);
@@ -424,12 +426,19 @@ export default function WealthfrontDCF() {
         // UFCF: Adj. EBITDA × FCF conversion, less after-tax SBC (dilution cost to shareholders)
         const ufcf = adjEbitda * fcfConversion - sbc * (1 - taxRate);
 
-        // Dividends
-        const dividend = i >= 1 && netIncome > 0 ? netIncome * payoutRate / fdso : 0;
+        // Capital return: share buyback (Wealthfront returns capital via repurchase, not dividend).
+        // Fund from a % of UFCF; execute at a price that compounds from today at the cost of
+        // equity (WACC), so the stock re-rates over time and later buybacks retire fewer shares.
+        const repurchasePrice = stockPrice * Math.pow(1 + wacc, i);
+        const buybackDollars = ufcf > 0 ? ufcf * buybackRate : 0;
+        const sharesRepurchased = repurchasePrice > 0 ? buybackDollars / repurchasePrice : 0;
+        fdso = Math.max(fdso - sharesRepurchased, 1);
 
-        // Cash balance: UFCF + interest income - dividends
-        const divsPaid = i >= 1 && netIncome > 0 ? netIncome * payoutRate : 0;
-        cash = cash + ufcf + interestIncome - divsPaid;
+        // EPS on post-buyback share count
+        const eps = netIncome / fdso;
+
+        // Cash balance: UFCF + interest income - buybacks
+        cash = cash + ufcf + interestIncome - buybackDollars;
 
         const cashPerShare = cash / fdso;
 
@@ -445,7 +454,7 @@ export default function WealthfrontDCF() {
           grossProfit, salesMarketing, totalOpex,
           ebit, netIncome, eps, fdso,
           adjEbitda, ebitdaMargin, da, sbc,
-          ufcf, cash, cashPerShare, dividend, interestIncome,
+          ufcf, cash, cashPerShare, buybackDollars, sharesRepurchased, repurchasePrice, interestIncome,
           revenueGrowth: (totalRevenue - prevRevenue) / prevRevenue,
           totalNetDeposits,
         });
@@ -487,10 +496,12 @@ export default function WealthfrontDCF() {
         const netIncome = preTax - tax;
 
         fdso = fdso * (1 + dilution);
+        const repurchasePrice = stockPrice * Math.pow(1 + wacc, i);
+        const buybackDollars = ufcf > 0 ? ufcf * buybackRate : 0;
+        const sharesRepurchased = repurchasePrice > 0 ? buybackDollars / repurchasePrice : 0;
+        fdso = Math.max(fdso - sharesRepurchased, 1);
         const eps = netIncome / fdso;
-        const dividend = netIncome > 0 ? netIncome * payoutRate / fdso : 0;
-        const divsPaid = netIncome > 0 ? netIncome * payoutRate : 0;
-        cash = cash + ufcf + interestIncome - divsPaid;
+        cash = cash + ufcf + interestIncome - buybackDollars;
         const cashPerShare = cash / fdso;
 
         // Approximate asset growth using revenue growth as proxy
@@ -516,7 +527,7 @@ export default function WealthfrontDCF() {
           grossProfit, salesMarketing: 0, totalOpex: 0,
           ebit, netIncome, eps, fdso,
           adjEbitda, ebitdaMargin, da, sbc,
-          ufcf, cash, cashPerShare, dividend, interestIncome,
+          ufcf, cash, cashPerShare, buybackDollars, sharesRepurchased, repurchasePrice, interestIncome,
           revenueGrowth: revGrowth,
         });
 
@@ -540,7 +551,7 @@ export default function WealthfrontDCF() {
     const gordonEV = sumPvFcf + pvGordonTV;
     const totalPvSbc = 0; // SBC handled within EBITDA bridge, no separate deduction
 
-    const gordonEquity = gordonEV + FY26.cash;
+    const gordonEquity = gordonEV + CURRENT_CASH;
     const gordonPrice = gordonEquity / FY26.fdso;
 
     // Implied multiples from Gordon
@@ -551,9 +562,14 @@ export default function WealthfrontDCF() {
     // Upside
     const upside = (gordonPrice / stockPrice - 1);
 
-    // IRR: include cumulative dividends received over ~4yr hold
-    const cumDivPerShare = projYears.slice(0, 4).reduce((sum, y) => sum + y.dividend, 0);
-    const moic = (gordonPrice + cumDivPerShare) / stockPrice;
+    // IRR over ~4yr hold. Capital return is via buyback, not dividends: repurchases below
+    // intrinsic value transfer the (intrinsic − price) discount to remaining holders.
+    const cumSharesRepurchased = projYears.slice(0, 4).reduce((sum, y) => sum + (y.sharesRepurchased || 0), 0);
+    const buybackAccretionPerShare = projYears.slice(0, 4).reduce(
+      (sum, y) => sum + (y.sharesRepurchased || 0) * Math.max(gordonPrice - (y.repurchasePrice || stockPrice), 0), 0
+    ) / FY26.fdso;
+    const exitPrice = gordonPrice + buybackAccretionPerShare;
+    const moic = exitPrice / stockPrice;
     const impliedIrr = Math.pow(Math.max(moic, 0.01), 1 / 4) - 1; // ~4yr hold
 
     // FY30 metrics for display
@@ -561,12 +577,12 @@ export default function WealthfrontDCF() {
 
     // Valuation at current price
     const mktCap = stockPrice * FY26.fdso; // $M
-    const tev = mktCap - FY26.cash; // TEV = mkt cap - cash (no debt)
+    const tev = mktCap - CURRENT_CASH; // TEV = mkt cap - cash (no debt)
     const fy27 = projYears[0];
     const fy28 = projYears[1];
 
     // FY26A multiples (from actuals)
-    const fy26PE = FY26.netIncome > 0 ? (stockPrice - FY26.cash / FY26.fdso) / (FY26.netIncome / FY26.fdso) : null;
+    const fy26PE = FY26.netIncome > 0 ? (stockPrice - CURRENT_CASH / FY26.fdso) / (FY26.netIncome / FY26.fdso) : null;
     const fy26EvEbitda = tev / FY26.adjEbitda;
     const fy26UfcfYield = (FY26.adjEbitda * 0.85) / tev; // approximate FY26 UFCF
 
@@ -581,7 +597,7 @@ export default function WealthfrontDCF() {
     const fy28UfcfYield = fy28.ufcf / tev;
 
     const valuation = {
-      fdso: FY26.fdso, mktCap, cash: FY26.cash, tev,
+      fdso: FY26.fdso, mktCap, cash: CURRENT_CASH, tev,
       fy26: { pe: fy26PE, evEbitda: fy26EvEbitda, ufcfYield: fy26UfcfYield },
       fy27: { pe: fy27PE, evEbitda: fy27EvEbitda, ufcfYield: fy27UfcfYield },
       fy28: { pe: fy28PE, evEbitda: fy28EvEbitda, ufcfYield: fy28UfcfYield },
@@ -591,21 +607,21 @@ export default function WealthfrontDCF() {
       projYears,
       gordonPrice, gordonEV, gordonEquity, gordonTV, pvGordonTV, sumPvFcf, totalPvSbc,
       gordonImpliedPE, gordonImpliedEvEbitda,
-      upside, moic, impliedIrr, fy30, cumDivPerShare, valuation,
+      upside, moic, impliedIrr, fy30, buybackAccretionPerShare, exitPrice, cumSharesRepurchased, valuation,
     };
   }, [stockPrice, effr, fy29Effr, wacc, termGrowth, cmYieldBps, cmMix, expansionRate,
-      termEbitdaMargin, netClientGrowth, avgDeposit, iaReturn, dilution, payoutRate,
+      termEbitdaMargin, netClientGrowth, avgDeposit, iaReturn, dilution, buybackRate,
       opexExMktg, smEfficiency, grossMargin, taxRate, fcfConversion]);
 
   // ─── Chart Data ───
   const chartData = useMemo(() => {
     const hist = [
       { fy: "FY24", revenue: 216.7, ebitda: 98.6, margin: 0.455, revGrowth: null, assets: 57.6, cm: 29.4, ia: 28.2, clients: 854, clientGrowth: null, aumGrowth: null },
-      { fy: "FY25", revenue: 309.0, ebitda: 142.8, margin: 0.462, revGrowth: (309.0 - 216.7) / 216.7, assets: 80.2, cm: 42.4, ia: 37.8, clients: 1212, clientGrowth: (1212 - 854) / 854, aumGrowth: (80.2 - 57.6) / 57.6 },
-      { fy: "FY26", revenue: 365.0, ebitda: 170.4, margin: 0.467, revGrowth: (365.0 - 309.0) / 309.0, assets: 94.1, cm: 45.4, ia: 48.7, clients: 1417, clientGrowth: (1417 - 1212) / 1212, aumGrowth: (94.1 - 80.2) / 80.2 },
+      { fy: "FY25", revenue: 308.9, ebitda: 142.7, margin: 0.462, revGrowth: (308.9 - 216.7) / 216.7, assets: 80.2, cm: 42.4, ia: 37.8, clients: 1212, clientGrowth: (1212 - 854) / 854, aumGrowth: (80.2 - 57.6) / 57.6 },
+      { fy: "FY26", revenue: 365.0, ebitda: 170.7, margin: 0.468, revGrowth: (365.0 - 308.9) / 308.9, assets: 94.1, cm: 45.4, ia: 48.7, clients: 1417, clientGrowth: (1417 - 1212) / 1212, aumGrowth: (94.1 - 80.2) / 80.2 },
     ];
     const proj = model.projYears.map((y, idx) => {
-      const prevAssets = idx === 0 ? 94089 : model.projYears[idx - 1].totalAssets;
+      const prevAssets = idx === 0 ? 94106 : model.projYears[idx - 1].totalAssets;
       const aumGrowth = (y.totalAssets - prevAssets) / prevAssets;
       return {
         fy: y.fy, revenue: +y.totalRevenue.toFixed(1), ebitda: +y.adjEbitda.toFixed(1),
@@ -637,7 +653,7 @@ export default function WealthfrontDCF() {
         const sum = pvFcfs.reduce((a, b) => a + b, 0);
         const tv = model.projYears[9].ufcf * (1 + tg) / (w - tg);
         const pvTv = tv / Math.pow(1 + w, 10);
-        return ((sum + pvTv + FY26.cash) / FY26.fdso);
+        return ((sum + pvTv + CURRENT_CASH) / FY26.fdso);
       })
     }));
   }, [model]);
@@ -652,7 +668,7 @@ export default function WealthfrontDCF() {
       <Slider label="FY29 EFFR Target" value={fy29Effr} onChange={setFy29Effr} min={1.0} max={6.0} step={0.1} format="number" suffix="%" tooltip="Effective Federal Funds Rate — the Fed's benchmark overnight rate. Drives cash management yields and EFFR glide path from current rate to this target by FY29." />
       <Slider label="CM Yield on Avg Assets" value={cmYieldBps} onChange={setCmYieldBps} min={20} max={100} step={1} format="number" suffix=" bps" tooltip="The spread in basis points that Wealthfront earns on Cash Management assets. This is the difference between the yield clients earn and the yield Wealthfront earns on cash." />
       <Slider label="CM Deposit Mix" value={cmMix} onChange={setCmMix} min={0.10} max={0.65} step={0.01} format="pct" tooltip="Percentage of total client net deposits allocated to Cash Management (with the remaining in Investment Advisory). Higher mix = more deposits into higher margin Cash Management product." />
-      <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.02} max={0.12} step={0.005} format="pct" tooltip="Annual net deposit growth from existing clients as a % of beginning AUM. Captures organic wallet share gains — existing clients adding funds beyond initial deposit." />
+      <Slider label="Expansion Rate" value={expansionRate} onChange={setExpansionRate} min={0.01} max={0.12} step={0.005} format="pct" tooltip="Annual net deposit growth from existing clients as a % of beginning AUM. Set to ~2.5% to fit the post-FY26 deposit deceleration (FY26 $6.7B → Q1 FY27 ~$2.9B run-rate); the April tax-season CM outflow was seasonal, not structural." />
       <Slider label="Terminal EBITDA Margin" value={termEbitdaMargin} onChange={setTermEbitdaMargin} min={0.45} max={0.75} step={0.01} format="pct" tooltip="The steady-state Adj. EBITDA margin Wealthfront reaches by FY36. Model linearly interpolates from FY30's computed margin to this target over FY31–FY36." />
       <Slider label="WACC" value={wacc} onChange={setWacc} min={0.08} max={0.18} step={0.005} format="pct" tooltip="Weighted average cost of capital used to discount projected free cash flows back to present value. Higher WACC = lower implied price. 13% reflects a mid-stage fintech with public market liquidity." />
       <Slider label="Terminal Growth" value={termGrowth} onChange={setTermGrowth} min={0.01} max={0.05} step={0.005} format="pct" tooltip="Perpetual growth rate applied to terminal year FCF in the Gordon Growth model. Should not exceed long-run nominal GDP growth (~3–4%). Higher = larger terminal value." />
@@ -666,12 +682,12 @@ export default function WealthfrontDCF() {
       {showSecondary && (
         <div style={{ marginTop: 16 }}>
           <Slider label="Net New Clients/Mo (% Base)" value={netClientGrowth} onChange={setNetClientGrowth} min={0} max={0.02} step={0.001} format="pct" tooltip="Monthly net new funded client additions as a percentage of the existing client base. 1% monthly ≈ 12% annualized client growth." />
-          <Slider label="Avg Initial Deposit ($K)" value={avgDeposit} onChange={setAvgDeposit} min={5} max={50} step={1} format="number" prefix="$" suffix="K" tooltip="Average first deposit size for new funded clients, in thousands. New customer deposits = new accounts × this amount. Wealthfront's current average is ~$20K." />
+          <Slider label="Avg Initial Deposit ($K)" value={avgDeposit} onChange={setAvgDeposit} min={5} max={50} step={1} format="number" prefix="$" suffix="K" tooltip="Average first-year net deposit per new funded client, in thousands. New customer deposits = new accounts × this amount. Set to ~$7K to fit the Q1 FY27 run-rate (deposits decelerated sharply from FY26); incentive adopters bring a few thousand more." />
           <Slider label="IA Market Return" value={iaReturn} onChange={setIaReturn} min={0.03} max={0.12} step={0.005} format="pct" tooltip="Annual market return assumption for Investment Advisory assets. Drives IA AUM growth from market appreciation (separate from new deposits). Based on blended equity/bond portfolio returns." />
-          <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" tooltip="Annual increase in fully diluted shares outstanding from stock-based compensation. 1% = ~1.9M new shares/year at current FDSO of 187M." />
-          <Slider label="Dividend Payout Rate" value={payoutRate} onChange={setPayoutRate} min={0} max={1.0} step={0.05} format="pct" tooltip="Percentage of net income returned to shareholders as dividends starting FY28. 0% = all earnings reinvested. Wealthfront has not yet initiated a dividend." />
-          <Slider label="OpEx ex-Mktg FY27 (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.50} step={0.01} format="pct" tooltip="Non-marketing operating expenses (R&D, G&A) as a percentage of revenue in FY27. Declines 1pp/year through FY30 to model operating leverage." />
-          <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="" tooltip="Sales & Marketing efficiency — net new deposits generated per $1M of S&M spend. Higher = more efficient client acquisition. FY26A was ~$125 deposits per $1M S&M spend." />
+          <Slider label="Annual FDSO Dilution" value={dilution} onChange={setDilution} min={0} max={0.03} step={0.001} format="pct" tooltip="Annual gross increase in fully diluted shares from stock-based compensation, before buybacks. 1% = ~1.75M new shares/year at current FDSO of 175.5M. Net share count = dilution less buybacks." />
+          <Slider label="Buyback (% of FCF)" value={buybackRate} onChange={setBuybackRate} min={0} max={1.0} step={0.05} format="pct" tooltip="Share of unlevered FCF deployed to repurchase stock at the current price each year (vs. dividends). Reduces net share count and builds per-share value. Wealthfront authorized a $100M buyback in Mar 2026 and repurchased $27M (3.1M shares @ $8.66) in Q1 FY27 — its capital-return method of choice." />
+          <Slider label="OpEx ex-Mktg FY27 (% Rev)" value={opexExMktg} onChange={setOpexExMktg} min={0.25} max={0.65} step={0.01} format="pct" tooltip="Non-marketing operating expenses (R&D, G&A) as a % of revenue in FY27. Set to ~50% so total adj. opex (incl. marketing) lands near the actual ~60% of revenue and FY27 EBITDA margin ≈ 42% (Q1 FY27 printed 41%). Declines 1pp/year for operating leverage." />
+          <Slider label="S&M Efficiency (Net Dep/$M)" value={smEfficiency} onChange={setSmEfficiency} min={50} max={350} step={5} format="number" prefix="$" suffix="" tooltip="Sales & Marketing efficiency — net new deposits ($M) generated per $1M of S&M spend. Higher = more efficient. FY26A was ~$125; set to ~$80 for the forward as acquisition got costlier (competition + the cross-product incentive), matching Q1 FY27's ~$45M annualized marketing on ~$3.5B deposits." />
           <Slider label="Gross Margin" value={grossMargin} onChange={setGrossMargin} min={0.80} max={0.95} step={0.01} format="pct" tooltip="Revenue less cost of revenue (fund expenses, payment processing, data costs) as a percentage of revenue. Wealthfront's FY26A gross margin was ~90%." />
           <Slider label="Effective Tax Rate" value={taxRate} onChange={setTaxRate} min={0.15} max={0.30} step={0.01} format="pct" tooltip="Blended federal + state tax rate applied to pre-tax income. 21% = federal statutory rate. Actual rate may differ due to NOLs, state taxes, and R&D credits." />
           <Slider label="FCF Conversion %" value={fcfConversion} onChange={setFcfConversion} min={0.65} max={0.95} step={0.01} format="pct" tooltip="Percentage of Adj. EBITDA converted to unlevered free cash flow after capex and working capital changes. Higher = more cash-generative business." />
@@ -739,12 +755,12 @@ export default function WealthfrontDCF() {
             <KPICard small title="FY30 EBITDA" value={fmtM(model.fy30.adjEbitda)} subtitle={fmtPct(model.fy30.ebitdaMargin) + " margin"} color={C.accent} />
             <KPICard small title="FY30 EPS" value={fmtDollar(model.fy30.eps)} color={C.accent} />
             <KPICard small title="FY30 AUM" value={`$${(model.fy30.totalAssets / 1000).toFixed(0)}B`} color={C.accent} />
-            <KPICard small title="Cash/Share" value={fmtDollar(model.fy30.cashPerShare)} subtitle="as of Jan 31, 2031" color={C.accent} />
+            <KPICard small title="Cash / Share (Today)" value={fmtDollar(CURRENT_CASH / FY26.fdso)} subtitle="as of Apr 30, 2026" color={C.green} />
           </div>
 
           {/* Monthly Metrics Link + FY27E Deposit Assumption */}
           {(() => {
-            const recent3Deps = [596, 271, -247]; // Mar, Feb, Jan '26 from MONTHLY data
+            const recent3Deps = [447, -313, 596]; // May, Apr, Mar '26 from MONTHLY data
             const avg3mo = recent3Deps.reduce((s, v) => s + v, 0) / 3;
             const annualized = avg3mo * 12;
             const fy27Deposits = model.projYears.length > 0 ? model.projYears[0].totalNetDeposits : 0;
@@ -754,7 +770,7 @@ export default function WealthfrontDCF() {
                   onMouseOver={e => e.currentTarget.style.borderColor = C.purple}
                   onMouseOut={e => e.currentTarget.style.borderColor = C.border}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Monthly Metrics Tracker →</div>
-                  <div style={{ fontSize: 11, color: C.textMuted }}>Platform assets, net deposits (CM/IA split), funded clients · Updated through Mar '26</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>Platform assets, net deposits (CM/IA split), funded clients · Updated through May '26</div>
                 </a>
                 <div style={{ flex: "1 1 280px", padding: "12px 16px", background: C.card, borderRadius: 10, border: `1px solid ${C.amber}44` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -940,11 +956,11 @@ export default function WealthfrontDCF() {
                 { label: "PV of FCFs", value: model.sumPvFcf, color: C.purple },
                 { label: "PV of Terminal", value: model.pvGordonTV, color: C.purpleLight },
                 { label: "= Enterprise Value", value: model.gordonEV, color: C.lavender },
-                { label: "+ Cash", value: FY26.cash, color: C.green },
+                { label: "+ Cash", value: CURRENT_CASH, color: C.green },
                 { label: "= Equity Value", value: model.gordonEquity, color: C.accent },
                 { label: `÷ ${FY26.fdso.toFixed(0)}M sh`, value: model.gordonPrice, isPrice: true, color: C.green },
               ].map((item, i) => {
-                const maxVal = model.gordonEV + FY26.cash;
+                const maxVal = model.gordonEV + CURRENT_CASH;
                 const h = item.isPrice ? 100 : Math.max(20, (Math.abs(item.value) / maxVal) * 100);
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
@@ -1019,9 +1035,11 @@ export default function WealthfrontDCF() {
                     { label: "AUM ($B)", fy26: "94.1", fn: y => (y.totalAssets / 1000).toFixed(0) },
                     { label: "Revenue ($M)", fy26: "365", fn: y => y.totalRevenue.toFixed(0) },
                     { label: "  % Growth", fy26: "18%", fn: y => fmtPct(y.revenueGrowth, 1), dim: true },
-                    { label: "Adj. EBITDA ($M)", fy26: "170", fn: y => y.adjEbitda.toFixed(0) },
+                    { label: "Adj. EBITDA ($M)", fy26: "171", fn: y => y.adjEbitda.toFixed(0) },
                     { label: "  % Margin", fy26: "47%", fn: y => fmtPct(y.ebitdaMargin, 1), dim: true },
-                    { label: "EPS", fy26: "($0.22)", fn: y => y.eps >= 0 ? fmtDollar(y.eps) : `(${fmtDollar(-y.eps)})` },
+                    { label: "  Rule of 40", fy26: "65", fn: y => (y.revenueGrowth * 100 + y.ebitdaMargin * 100).toFixed(0), dim: true },
+                    { label: "EPS", fy26: "($0.76)", fn: y => y.eps >= 0 ? fmtDollar(y.eps) : `(${fmtDollar(-y.eps)})` },
+                    { label: "Net Shares (M)", fy26: "176", fn: y => y.fdso.toFixed(0), dim: true },
                     { label: "UFCF ($M)", fy26: "151", fn: y => y.ufcf.toFixed(0) },
                     { label: "Cash ($M)", fy26: "441", fn: y => y.cash.toFixed(0) },
                     { label: "Take Rate (Rev/AUM)", fy26: "0.42%", fn: y => fmtPct(y.blendedYield, 2), dim: true },
@@ -1041,7 +1059,7 @@ export default function WealthfrontDCF() {
           </div>
 
           <div style={{ fontSize: 10, color: C.textDim, marginTop: 12, textAlign: "center" }}>
-            Model based on Wealthfront FY26 10-K actuals · Monthly metrics updated through March 2026 · All projections are estimates · Not financial advice
+            Model based on Wealthfront Q4 & FY2026 earnings (reported Mar 11, 2026) · Monthly metrics updated through May 2026 · All projections are estimates · Not financial advice
           </div>
         </div>
       </div>
