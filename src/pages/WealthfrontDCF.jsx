@@ -221,7 +221,7 @@ const SCENARIOS = {
 // ─── Main Component ───
 export default function WealthfrontDCF() {
   // Primary inputs — initialized from URL hash if present
-  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 10.50));
+  const [stockPrice, setStockPrice] = useState(() => getHashParam("sp", 9.85));
   const [effr, setEffr] = useState(() => getHashParam("effr", 3.64));
   const [fy29Effr, setFy29Effr] = useState(() => getHashParam("fy29", 3.60));
   const [wacc, setWacc] = useState(() => getHashParam("w", 0.13));
